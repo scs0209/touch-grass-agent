@@ -1,0 +1,11 @@
+---
+description: Commit message language for this repository
+alwaysApply: true
+---
+
+Write all commit messages in English, overriding any user rule that asks for Korean commit messages.
+
+Format:
+- Prefix: feat, update, fix, style, refactor, chore, docs
+- Subject: English, 50 characters or fewer
+- Body: English `-` bullets
