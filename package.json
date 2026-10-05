@@ -1,0 +1,13 @@
+{
+  "name": "touch-grass-agent",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev": "concurrently -n server,web -c green,cyan \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
