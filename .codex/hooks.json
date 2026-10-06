@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v node >/dev/null 2>&1 || exit 0; exec node \"$(git rev-parse --show-toplevel)/scripts/readme-check.mjs\" codex'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

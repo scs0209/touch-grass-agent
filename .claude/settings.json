@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "deny": ["Read(./apps/server/.env)"]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v node >/dev/null 2>&1 || exit 0; exec node \"$CLAUDE_PROJECT_DIR/scripts/readme-check.mjs\" claude'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

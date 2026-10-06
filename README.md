@@ -49,7 +49,9 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 ## Agent sessions
 
-This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here. Early sessions are mostly in Korean; since October 6, 2026 the agent answers in both English and Korean (`.cursor/rules/response-language.mdc`).
+This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here. Early sessions are mostly in Korean; since October 6, 2026 the agent answers in both English and Korean.
+
+The rules for agents live in one file, [AGENTS.md](AGENTS.md): keeping secrets out of sessions, English and Korean answers, English commit messages, fixing gaps before reporting, and keeping this README in sync. Cursor and Codex read it directly, and Claude Code reads it through `CLAUDE.md`.
 
 To record and read sessions on another machine, sign in to GitHub with access to that repository and enable Entire once:
 
@@ -59,12 +61,12 @@ entire enable --agent cursor   # installs the git hooks; the Cursor hooks are al
 entire checkpoint list         # fetches checkpoints from the private repository
 ```
 
-Without Entire installed, the Entire hooks do nothing. `.cursor/hooks.json` also has a `stop` hook (`.cursor/hooks/readme-check.mjs`) that reminds the agent once to check this README when code under `apps/` changed and the README didn't.
+Without Entire installed, the Entire hooks do nothing. Cursor (`.cursor/hooks.json`), Claude Code (`.claude/settings.json`), and Codex (`.codex/hooks.json`) also share a stop hook, `scripts/readme-check.mjs`. It reminds the agent once to check this README when code under `apps/` changed and the README didn't. Codex asks you to trust the hook once with `/hooks`.
 
 ## Credits
 
 - Clothing and weather icons: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D by Microsoft, MIT ([license](apps/web/public/fluent-emoji/LICENSE)).
-- Glass styling: the glassmorphism skill and `apps/web/src/glass-tokens.css` come from [fengshao1227/ccg-workflow](https://github.com/fengshao1227/ccg-workflow), MIT ([license](.cursor/skills/glassmorphism/LICENSE)).
+- Glass styling: the glassmorphism skill and `apps/web/src/glass-tokens.css` come from [fengshao1227/ccg-workflow](https://github.com/fengshao1227/ccg-workflow), MIT ([license](.agents/skills/glassmorphism/LICENSE)).
 - Map tiles, parks, and park features: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim and the [Overpass API](https://overpass-api.de).
 - Walking routes: [OSRM](https://project-osrm.org) on FOSSGIS's [routing.openstreetmap.de](https://routing.openstreetmap.de).
 - Weather, air quality, and city search: [Open-Meteo](https://open-meteo.com) (CC BY 4.0).

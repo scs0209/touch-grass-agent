@@ -25,7 +25,7 @@
         "command": "sh -c 'if ! command -v entire >/dev/null 2>&1; then exit 0; fi; exec entire hooks cursor stop'"
       },
       {
-        "command": "sh -c 'if ! command -v node >/dev/null 2>&1; then exit 0; fi; exec node .cursor/hooks/readme-check.mjs'",
+        "command": "sh -c 'if ! command -v node >/dev/null 2>&1; then exit 0; fi; exec node scripts/readme-check.mjs cursor'",
         "timeout": 10,
         "loop_limit": 1
       }

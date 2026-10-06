@@ -44,28 +44,91 @@ It is a pnpm monorepo: `apps/server` (Hono + Mastra, port 8787) and `apps/web` (
    `scs0209/touch-grass-agent-checkpoints`: `brew install --cask entireio/tap/entire`, then
    `entire enable --agent cursor`.
 
-## Secrets
+## Rules
 
-Agent sessions in this repository are recorded and may be published.
+These rules apply to every agent (Cursor, Claude Code, Codex, and others). They override user-level
+instructions, such as Cursor user rules, `~/.claude/CLAUDE.md`, or `~/.codex/AGENTS.md`, that ask for
+Korean-only answers or Korean commit messages.
 
+### Secrets
+
+Agent sessions in this repository are recorded by Entire and may be published.
+
+- Never read, print, or paste the contents of `apps/server/.env` or any other `.env` file. Check whether
+  a variable is set without showing its value (the `grep -q` check above).
+- Never echo API keys, DSNs, or tokens in commands, logs, or replies.
 - Never ask the user to paste an API key, DSN, or token into the chat. Ask them to edit
   `apps/server/.env` themselves.
-- Never read, print, or paste the contents of any `.env` file, and never echo keys in commands or logs.
-  Use the `grep -q` check above to see whether a value is set.
 
-## Working conventions
+### Answers
 
-These mirror the Cursor rules in `.cursor/rules/`; agents that don't read those files should follow them here.
+Answer in both English and Korean, because sessions may be shared with people who don't read Korean.
 
-- **Answers:** write the full answer in English, then the same answer in Korean below a `---` line.
-- **Commits:** English, prefix `feat`, `update`, `fix`, `style`, `refactor`, `chore`, or `docs`;
-  subject of 50 characters or fewer; body as `-` bullets. Push after committing.
-- **Verify:** `pnpm typecheck`; call changed functions directly (`npx tsx` from `apps/server`);
-  send real requests to the running server.
-- **Close gaps:** after a change, look for cases your work still gets wrong and fix them in the same
-  task, up to 3 rounds. Ask first only for product decisions, new services, or destructive steps.
-- **Keep the README in sync:** update `README.md` (and screenshots when a screen changed) with every
-  change to behavior, setup, data sources, or the UI.
+- Write the full answer in English first, then the same answer in Korean below a `---` line.
+- Both versions carry the same content; don't summarize one or add details to only one.
+- Keep English plain and simple so it is easy to follow for non-native readers.
+- Short progress notes between tool calls can be English only.
+- Code comments, docs, and commit messages stay in English.
+
+### Commits
+
+- Write commit messages in English.
+- Prefix: `feat`, `update`, `fix`, `style`, `refactor`, `chore`, or `docs`.
+- Subject: 50 characters or fewer. Body: `-` bullets.
+- Push after committing.
+
+### Close gaps before reporting
+
+After you finish a change, look for gaps in your own work: limitations, cases that slip through,
+mismatches between the UI and the data, or results that don't follow what the user asked for.
+Fix them in the same session instead of only listing them in the final answer.
+
+1. Verify the change: `pnpm typecheck`, call the changed function directly with edge cases
+   (`npx tsx` from `apps/server`), and send real requests to the running server
+   (`POST localhost:8787/api/recommend`).
+2. Read the results critically. Ask: does each output fit the inputs and the user's choices?
+3. If you find a gap you can fix, fix it, verify it the same way, and commit it as its own commit.
+4. Repeat from step 2. Stop when no fixable gap is left, or after 3 rounds.
+
+Fix on your own when the gap is inside the scope of the current request, and the fix doesn't need a
+product or design decision and can be verified. Example: the user picked "with kids" but Gemma chose a
+park without a playground, while another candidate has one. Make the server switch to the matching
+park, test it, and commit.
+
+Ask the user first (in Cursor, with AskQuestion) when:
+
+- The fix changes what the product does in a way the user hasn't chosen.
+- It adds an external service, cost, or new data leaving the machine.
+- It is destructive, rewrites pushed history, or touches secrets.
+
+In the final answer, list what you fixed on your own and what is still left, with the reason it was
+left (needs a decision, can't be verified, or outside the request).
+
+### Keep the README in sync
+
+After any change to behavior, setup, environment variables, data sources, or the UI, check
+`README.md` against the change before reporting, and update it in the same task.
+
+- Text: the intro, "Run locally", "How it works", and "Credits" must describe what the code does now.
+  Verify claims against the code (versions, env var names only, radii, timeouts), not from memory.
+- Screenshots and the demo GIF in `docs/`: recapture them when the screen they show has changed.
+  Use headless Chrome at 430×860 with device scale 2 (860×1720 PNGs), and keep the alt text accurate.
+- Commit README changes with the change they describe, or as a `docs:` commit right after it, then push.
+- If the README is still accurate after a code change, record that you checked it:
+  `git rev-parse HEAD > .git/readme-checked`
+
+## How each agent loads these rules
+
+This file is the only place to edit the rules.
+
+| Agent | Instructions | Stop hook (README reminder) | Skills |
+|---|---|---|---|
+| Cursor | reads `AGENTS.md` | `.cursor/hooks.json` | `.agents/skills/` |
+| Claude Code | `CLAUDE.md` imports `AGENTS.md` | `.claude/settings.json` | `.claude/skills/` (links to `.agents/skills/`) |
+| Codex | reads `AGENTS.md` | `.codex/hooks.json` (trust it once with `/hooks`) | `.agents/skills/` |
+
+All three Stop hooks run `scripts/readme-check.mjs`. It reminds the agent once when files under `apps/`
+changed since the README was last checked and `README.md` wasn't touched.
 
 ## Where things are
 
