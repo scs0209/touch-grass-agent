@@ -4,7 +4,7 @@ import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
 import { getParkFeatures, type Feature } from './conditions/features.js';
 import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
-import { getRoundTripWalk, getRoundTripWalks, type Route } from './conditions/route.js';
+import { getRoundTripRide, getRoundTripWalk, getRoundTripWalks, type Route } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
@@ -436,7 +436,10 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
 
   const place = conditions.nearbyParks.find((park) => park.id === placeId);
   const bikeStation = conditions.nearbyBikeStations?.find((station) => station.id === bikeStationId);
-  const route: Route | null = place ? await optional(getRoundTripWalk(origin, place), 'route', null) : null;
+  const route: Route | null = place
+    ? ((bikeStation && (await optional(getRoundTripRide(origin, bikeStation, place), 'bike route', null))) ??
+      (await optional(getRoundTripWalk(origin, place), 'route', null)))
+    : null;
   // The card's duration must cover the real round trip shown on the map, even when that is over the time
   // available (only when the round trip couldn't be measured before the park was chosen).
   const durationMin = route ? Math.max(recommendation.durationMin, route.durationMin) : recommendation.durationMin;

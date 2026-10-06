@@ -1,9 +1,9 @@
 import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Avatar } from './Avatar';
-import { walkingDirectionsUrl } from './directions';
+import { directionsUrl } from './directions';
 import { OutfitCards, outfitItems, type Outfit } from './OutfitCards';
 import { loadChoice, saveChoice, summarize, type Preferences, type SavedChoice } from './preferences';
-import type { StoryInput, ThingScene } from './previewDraw';
+import type { Route, StoryInput, ThingScene } from './previewDraw';
 import { Questionnaire } from './Questionnaire';
 import { ResultMap } from './ResultMap';
 import { WeatherPanel, type WeatherConditions } from './WeatherPanel';
@@ -38,12 +38,7 @@ interface RecommendResponse {
   outfits: { fit: Fit; outfit: Outfit }[];
   origin: { lat: number; lon: number };
   place: (NamedPoint & { features: string[] | null }) | null;
-  route: {
-    coordinates: [number, number][];
-    destinationOnPath: [number, number];
-    distanceM: number;
-    durationMin: number;
-  } | null;
+  route: Route | null;
   bikeStation: (NamedPoint & { bikesAvailable: number }) | null;
   source: 'model' | 'fallback';
   conditions: WeatherConditions;
@@ -215,7 +210,7 @@ function storyInput(result: RecommendResponse, place: NonNullable<RecommendRespo
     origin,
     destination: place,
     route,
-    bikeStationName: bikeStation?.name ?? null,
+    bikeStation,
     things: recommendation.thingsToDo.map((text, i) => ({ text, scene: thingScenes[i] ?? 'walk' })),
     outfitItems: outfitItems(outfit),
     conditions,
@@ -271,7 +266,10 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
           <ResultMap origin={origin} place={place} route={route} bikeStation={bikeStation} />
           {route && place && (
             <p className="muted small">
-              {(route.distanceM / 1000).toFixed(1)} km round trip to {place.name} · about {route.durationMin} min on foot
+              {(route.distanceM / 1000).toFixed(1)} km round trip to {place.name} · about {route.durationMin} min
+              {route.mode === 'bike'
+                ? ` (${route.rideMin} by bike from ${bikeStation?.name ?? 'the station'}, ${route.walkMin} on foot)`
+                : ' on foot'}
             </p>
           )}
         </section>
@@ -304,11 +302,11 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
       {isGo && destination && (
         <a
           className="primary"
-          href={walkingDirectionsUrl(destination)}
+          href={place ? directionsUrl(place, bikeStation) : directionsUrl(destination)}
           target="_blank"
           rel="noreferrer"
         >
-          Walk to {destination.name}
+          {place && bikeStation ? 'Ride' : 'Walk'} to {destination.name}
         </a>
       )}
 

@@ -1,12 +1,30 @@
 import type { LatLon } from '../geo.js';
 
+export type TravelMode = 'foot' | 'bike';
+
 export interface Route {
+  mode: TravelMode;
   /** [lat, lon] pairs, ready for Leaflet. */
   coordinates: [number, number][];
   /** Where the router snapped the destination onto the path network, as [lat, lon]. */
   destinationOnPath: [number, number];
   distanceM: number;
+  /** The whole trip, including renting and returning the bike on a bike trip. */
   durationMin: number;
+  /** Minutes on the bike; 0 on foot. */
+  rideMin: number;
+  /** Minutes on foot; on a bike trip, the walk to the station and back home from it. */
+  walkMin: number;
+}
+
+/** A round trip on one travel mode, as the router returns it. */
+interface RoundTrip {
+  coordinates: [number, number][];
+  destinationOnPath: [number, number];
+  distanceM: number;
+  durationMin: number;
+  /** Index in coordinates of the turnaround point, where the way back begins. */
+  returnStart: number;
 }
 
 interface OsrmLeg {
@@ -21,31 +39,35 @@ interface OsrmResponse {
   routes?: { legs: OsrmLeg[] }[];
 }
 
-const OSRM_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot';
+const osrmUrl = (mode: TravelMode) => `https://routing.openstreetmap.de/routed-${mode}/route/v1/${mode}`;
 /** Long enough to cover asking again from the same spot, short enough that routes don't go stale. */
 const CACHE_TTL_MS = 10 * 60 * 1000;
+/** Unlocking a Ddareungi bike at the station and docking it again. */
+const RENT_AND_RETURN_MIN = 2;
 
-const cache = new Map<string, { route: Promise<Route>; expiresAt: number }>();
+const cache = new Map<string, { trip: Promise<RoundTrip>; expiresAt: number }>();
 
-const cacheKey = (origin: LatLon, destination: LatLon) =>
-  [origin.lat, origin.lon, destination.lat, destination.lon].join(',');
+const cacheKey = (mode: TravelMode, origin: LatLon, destination: LatLon) =>
+  [mode, origin.lat, origin.lon, destination.lat, destination.lon].join(',');
 
-function toRoute(legs: OsrmLeg[], [snappedLon, snappedLat]: [number, number]): Route {
+function toRoundTrip([out, back]: OsrmLeg[], [snappedLon, snappedLat]: [number, number]): RoundTrip {
   const coordinates: [number, number][] = [];
-  for (const step of legs.flatMap((leg) => leg.steps)) {
-    for (const [lon, lat] of step.geometry.coordinates) {
+  let returnStart = 0;
+  for (const leg of [out, back]) {
+    if (leg === back) returnStart = coordinates.length - 1;
+    for (const [lon, lat] of leg.steps.flatMap((step) => step.geometry.coordinates)) {
       // Consecutive steps share their boundary point.
       const last = coordinates.at(-1);
       if (!last || last[0] !== lat || last[1] !== lon) coordinates.push([lat, lon]);
     }
   }
-  const sum = (key: 'distance' | 'duration') => legs.reduce((total, leg) => total + leg[key], 0);
 
   return {
     coordinates,
     destinationOnPath: [snappedLat, snappedLon],
-    distanceM: Math.round(sum('distance')),
-    durationMin: Math.round(sum('duration') / 60),
+    distanceM: Math.round(out.distance + back.distance),
+    durationMin: Math.round((out.duration + back.duration) / 60),
+    returnStart,
   };
 }
 
@@ -53,11 +75,11 @@ function toRoute(legs: OsrmLeg[], [snappedLon, snappedLat]: [number, number]): R
  * Asks OSRM once for origin → A → origin → B → origin …, so every round trip costs a single request
  * to the shared public server. Each pair of legs is exactly the route a separate request would return.
  */
-async function fetchRoundTrips(origin: LatLon, destinations: LatLon[]): Promise<Route[]> {
+async function fetchRoundTrips(mode: TravelMode, origin: LatLon, destinations: LatLon[]): Promise<RoundTrip[]> {
   const waypoints = [origin, ...destinations.flatMap((destination) => [destination, origin])]
     .map(({ lat, lon }) => `${lon},${lat}`)
     .join(';');
-  const url = `${OSRM_URL}/${waypoints}?overview=false&steps=true&geometries=geojson`;
+  const url = `${osrmUrl(mode)}/${waypoints}?overview=false&steps=true&geometries=geojson`;
 
   const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`OSRM failed: ${response.status}`);
@@ -66,39 +88,75 @@ async function fetchRoundTrips(origin: LatLon, destinations: LatLon[]): Promise<
   const snapped = data.waypoints;
   if (data.code !== 'Ok' || !legs || !snapped) throw new Error(`OSRM returned ${data.code}`);
 
-  return destinations.map((_, index) => toRoute(legs.slice(2 * index, 2 * index + 2), snapped[2 * index + 1].location));
+  return destinations.map((_, index) =>
+    toRoundTrip(legs.slice(2 * index, 2 * index + 2), snapped[2 * index + 1].location),
+  );
 }
 
-function remember(origin: LatLon, destinations: LatLon[]): Promise<Route>[] {
+function remember(mode: TravelMode, origin: LatLon, destinations: LatLon[]): Promise<RoundTrip>[] {
   const now = Date.now();
   for (const [key, entry] of cache) if (entry.expiresAt <= now) cache.delete(key);
 
-  const routes = fetchRoundTrips(origin, destinations);
+  const trips = fetchRoundTrips(mode, origin, destinations);
   return destinations.map((destination, index) => {
-    const key = cacheKey(origin, destination);
-    const route = routes.then((all) => all[index]);
-    cache.set(key, { route, expiresAt: now + CACHE_TTL_MS });
+    const key = cacheKey(mode, origin, destination);
+    const trip = trips.then((all) => all[index]);
+    cache.set(key, { trip, expiresAt: now + CACHE_TTL_MS });
     // Forget failures so the next request asks OSRM again.
-    route.catch(() => {
-      if (cache.get(key)?.route === route) cache.delete(key);
+    trip.catch(() => {
+      if (cache.get(key)?.trip === trip) cache.delete(key);
     });
-    return route;
+    return trip;
   });
 }
 
-function cached(origin: LatLon, destination: LatLon) {
-  const entry = cache.get(cacheKey(origin, destination));
-  return entry && entry.expiresAt > Date.now() ? entry.route : undefined;
+function cached(mode: TravelMode, origin: LatLon, destination: LatLon) {
+  const entry = cache.get(cacheKey(mode, origin, destination));
+  return entry && entry.expiresAt > Date.now() ? entry.trip : undefined;
 }
 
-/** Round trips to every destination, fetched in one request except for those still cached. */
+function getRoundTrip(mode: TravelMode, origin: LatLon, destination: LatLon): Promise<RoundTrip> {
+  const fetchNow = () => remember(mode, origin, [destination])[0];
+  return cached(mode, origin, destination)?.catch(fetchNow) ?? fetchNow();
+}
+
+const asWalk = ({ returnStart, ...trip }: RoundTrip): Route => ({
+  ...trip,
+  mode: 'foot',
+  rideMin: 0,
+  walkMin: trip.durationMin,
+});
+
+/** Round trips on foot to every destination, fetched in one request except for those still cached. */
 export function getRoundTripWalks(origin: LatLon, destinations: LatLon[]): Promise<Route>[] {
-  const missing = destinations.filter((destination) => !cached(origin, destination));
-  const fetched = missing.length > 0 ? remember(origin, missing) : [];
-  return destinations.map((destination) => cached(origin, destination) ?? fetched[missing.indexOf(destination)]);
+  const missing = destinations.filter((destination) => !cached('foot', origin, destination));
+  const fetched = missing.length > 0 ? remember('foot', origin, missing) : [];
+  return destinations.map((destination) =>
+    (cached('foot', origin, destination) ?? fetched[missing.indexOf(destination)]).then(asWalk),
+  );
 }
 
-export function getRoundTripWalk(origin: LatLon, destination: LatLon): Promise<Route> {
-  const fetchNow = () => remember(origin, [destination])[0];
-  return cached(origin, destination)?.catch(fetchNow) ?? fetchNow();
+export async function getRoundTripWalk(origin: LatLon, destination: LatLon): Promise<Route> {
+  return asWalk(await getRoundTrip('foot', origin, destination));
+}
+
+/** Walk to the station, ride to the destination and back, dock the bike, and walk home. */
+export async function getRoundTripRide(origin: LatLon, station: LatLon, destination: LatLon): Promise<Route> {
+  const [walk, ride] = await Promise.all([
+    getRoundTrip('foot', origin, station),
+    getRoundTrip('bike', station, destination),
+  ]);
+  return {
+    mode: 'bike',
+    coordinates: [
+      ...walk.coordinates.slice(0, walk.returnStart),
+      ...ride.coordinates,
+      ...walk.coordinates.slice(walk.returnStart + 1),
+    ],
+    destinationOnPath: ride.destinationOnPath,
+    distanceM: walk.distanceM + ride.distanceM,
+    durationMin: walk.durationMin + ride.durationMin + RENT_AND_RETURN_MIN,
+    rideMin: ride.durationMin,
+    walkMin: walk.durationMin,
+  };
 }

@@ -22,15 +22,27 @@ export type ThingScene =
 
 type LatLon = { lat: number; lon: number };
 
+/** Must match Route in apps/server/src/conditions/route.ts. */
+export interface Route {
+  mode: 'foot' | 'bike';
+  coordinates: [number, number][];
+  destinationOnPath: [number, number];
+  distanceM: number;
+  /** The whole trip, including renting and returning the bike on a bike trip. */
+  durationMin: number;
+  rideMin: number;
+  walkMin: number;
+}
+
 export interface StoryInput {
   durationMin: number;
   placeName: string;
   features: string[];
   origin: LatLon;
   destination: LatLon;
-  route: { coordinates: [number, number][]; destinationOnPath: [number, number]; distanceM: number; durationMin: number } | null;
+  route: Route | null;
   /** Set when the suggestion is a bike ride from this station. */
-  bikeStationName: string | null;
+  bikeStation: (LatLon & { name: string }) | null;
   things: { text: string; scene: ThingScene }[];
   outfitItems: OutfitItem[];
   conditions: WeatherConditions;
@@ -725,7 +737,7 @@ function project(points: LatLon[]) {
 function drawWalk(frame: Frame) {
   const { ctx, story, local, scene } = frame;
   const { input } = story;
-  const byBike = input.bikeStationName !== null;
+  const byBike = input.bikeStation !== null;
   drawSky(frame);
   drawText(ctx, `${byBike ? 'Ride' : 'Walk'} to ${input.placeName}`, 100, { size: 52, scale: pop(frame), maxLines: 2 });
 
@@ -807,16 +819,24 @@ function drawWalk(frame: Frame) {
   if (byBike) drawEmoji(ctx, '🚲', walker.x, walker.y - 10, 72);
   drawAvatar(frame, walker.x, walker.y - (byBike ? 30 : 10), 80, 'bob');
 
-  const distance = input.route?.distanceM ?? 2 * distanceM(input.origin, input.destination);
+  const { route } = input;
+  const distance = route?.distanceM ?? 2 * distanceM(input.origin, input.destination);
   const km = ((distance / 1000) * progress).toFixed(1);
-  if (byBike) {
+  if (!route) {
     drawText(ctx, `${km} km`, 1040, { size: 56 });
-    drawText(ctx, `round trip · bike from ${input.bikeStationName}`, 1115, { size: 32, weight: 600, maxLines: 2 });
+    drawText(ctx, byBike ? `round trip · bike from ${input.bikeStation?.name}` : 'round trip', 1115, {
+      size: 32,
+      weight: 600,
+      maxLines: 2,
+    });
     return;
   }
-  const minutes = input.route?.durationMin ?? input.durationMin;
-  drawText(ctx, `${km} km · ${Math.round(minutes * progress)} min`, 1040, { size: 56 });
-  drawText(ctx, 'round trip on foot', 1115, { size: 32, weight: 600 });
+  drawText(ctx, `${km} km · ${Math.round(route.durationMin * progress)} min`, 1040, { size: 56 });
+  const how =
+    route.mode === 'bike'
+      ? `${route.rideMin} min by bike from ${input.bikeStation?.name}, ${route.walkMin} on foot`
+      : 'round trip on foot';
+  drawText(ctx, how, 1115, { size: 32, weight: 600, maxLines: 2 });
 }
 
 function drawArrive(frame: Frame) {

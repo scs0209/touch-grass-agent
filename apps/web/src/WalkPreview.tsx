@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from './Avatar';
-import { walkingDirectionsUrl } from './directions';
+import { directionsUrl } from './directions';
 import type { Outfit } from './OutfitCards';
 import { buildStory, drawFrame, HEIGHT, imagePaths, WIDTH, type Assets, type StoryInput } from './previewDraw';
 import { BPM, moodFor, playMusic, type Music } from './previewMusic';
@@ -222,8 +222,13 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
         )}
         {phase === 'done' && (
           <div className="preview-actions">
-            <a className="primary" href={walkingDirectionsUrl(input.destination)} target="_blank" rel="noreferrer">
-              Walk to {input.placeName}
+            <a
+              className="primary"
+              href={directionsUrl(input.destination, input.bikeStation)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {input.bikeStation ? 'Ride' : 'Walk'} to {input.placeName}
             </a>
             <div className="preview-row">
               <button className="secondary" onClick={() => void play()}>
