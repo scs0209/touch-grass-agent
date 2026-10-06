@@ -29,6 +29,8 @@ pnpm dev                # web on http://localhost:5173, API on :8787
 
 Set `SEOUL_OPEN_API_KEY` in `apps/server/.env` to include Ddareungi (Seoul public bike) stations within 500m. Without it the app still works everywhere.
 
+Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, and the Gemma call, including latency and token usage. The traces include step inputs and outputs, so your location and the prompt leave your machine. Leave it empty and nothing is sent.
+
 ## How it works
 
 - `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, walking routes from OSRM (all keyless), and Seoul bike stations.
