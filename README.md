@@ -35,7 +35,7 @@ Set `SEOUL_OPEN_API_KEY` in `apps/server/.env` to include Ddareungi (Seoul publi
 
 Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, the Gemma call, and every outgoing API request, including latency and token usage. The traces include step inputs and outputs, so your location, your questionnaire answers, and the prompt leave your machine; the Seoul API key is masked in request URLs. Leave it empty and nothing is sent.
 
-<p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the four workflow steps, the Gemma call, and the outgoing API requests with their latency" width="800"></p>
+<p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM round-trip request runs during gather-conditions, which stops waiting for the slow Overpass request after 3 seconds, so plan-route takes 1 ms" width="800"></p>
 
 ## How it works
 
