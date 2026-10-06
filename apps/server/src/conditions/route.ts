@@ -146,6 +146,21 @@ export async function getRoundTripRide(origin: LatLon, station: LatLon, destinat
     getRoundTrip('foot', origin, station),
     getRoundTrip('bike', station, destination),
   ]);
+  return asRide(walk, ride);
+}
+
+/** Bike round trips from one station to every destination, fetched in one request except for those still cached. */
+export function getRoundTripRides(origin: LatLon, station: LatLon, destinations: LatLon[]): Promise<Route>[] {
+  const walk = getRoundTrip('foot', origin, station);
+  const missing = destinations.filter((destination) => !cached('bike', station, destination));
+  const fetched = missing.length > 0 ? remember('bike', station, missing) : [];
+  return destinations.map(async (destination) => {
+    const ride = cached('bike', station, destination) ?? fetched[missing.indexOf(destination)];
+    return asRide(await walk, await ride);
+  });
+}
+
+function asRide(walk: RoundTrip, ride: RoundTrip): Route {
   return {
     mode: 'bike',
     coordinates: [

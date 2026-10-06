@@ -3,8 +3,14 @@ import type { Agent } from '@mastra/core/agent';
 import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
 import { getParkFeatures, type Feature } from './conditions/features.js';
-import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
-import { getRoundTripRide, getRoundTripWalk, getRoundTripWalks, type Route } from './conditions/route.js';
+import { getNearbyParks, rideableRadiusM, walkableRadiusM, type Place } from './conditions/places.js';
+import {
+  getRoundTripRide,
+  getRoundTripRides,
+  getRoundTripWalk,
+  getRoundTripWalks,
+  type Route,
+} from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
@@ -13,8 +19,12 @@ import { recommendationSchema, type Interest, type Preferences, type Recommendat
 export interface Park extends Place {
   /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
   features: Feature[] | null;
-  /** Measured walking time there and back; null when the router didn't answer in time. */
+  /** Measured walking time there and back; null when the router didn't answer in time or the park is bike-only. */
   roundTripMin: number | null;
+  /** Too far to walk there and back in time, but reachable on a Ddareungi from the first station with bikes. */
+  bikeOnly: boolean;
+  /** Measured bike trip for bike-only parks: walk to the station, ride there and back, walk home. */
+  bikeTripMin: number | null;
 }
 
 export interface Conditions {
@@ -34,6 +44,8 @@ const DETAILS_WAIT_MS = 3000;
 const MAX_THINGS_TO_DO = 3;
 /** Shorter outings aren't worth unlocking and docking a public bike. */
 const MIN_BIKE_MINUTES = 30;
+/** The farthest bike-only parks that fit; more would crowd out the walking choices in the prompt. */
+const MAX_BIKE_ONLY_PARKS = 3;
 
 function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   return promise.catch((error) => {
@@ -50,19 +62,69 @@ async function withinWait<T>(promise: Promise<T>, label: string): Promise<T | nu
   return null;
 }
 
-async function withDetails(origin: LatLon, places: Place[], availableMinutes: number): Promise<Park[]> {
+const firstStationWithBikes = (stations: BikeStation[] | null) => stations?.find((station) => station.bikesAvailable > 0);
+
+/** Parks on foot, plus farther ones a Ddareungi can reach when riding is possible. */
+async function findParks(
+  origin: LatLon,
+  availableMinutes: number,
+  preferences: Preferences | null,
+  stations: Promise<BikeStation[] | null>,
+): Promise<Park[]> {
+  const walkRadius = walkableRadiusM(availableMinutes);
+  const walkPlaces = await optional(getNearbyParks(origin, walkRadius), 'parks', []);
+  const station = preferences?.cycling === false ? undefined : firstStationWithBikes(await stations);
+  const ridePlaces = station
+    ? await optional(
+        getNearbyParks(origin, rideableRadiusM(availableMinutes), { beyondM: walkRadius, idPrefix: 'B' }),
+        'bike parks',
+        [],
+      )
+    : [];
+  const newRidePlaces = ridePlaces.filter((place) => !walkPlaces.some((walkPlace) => walkPlace.name === place.name));
+  return withDetails(origin, walkPlaces, station ? { station, places: newRidePlaces } : null, availableMinutes);
+}
+
+async function withDetails(
+  origin: LatLon,
+  walkPlaces: Place[],
+  ride: { station: BikeStation; places: Place[] } | null,
+  availableMinutes: number,
+): Promise<Park[]> {
+  const ridePlaces = ride?.places ?? [];
+  const places = [...walkPlaces, ...ridePlaces];
   if (places.length === 0) return [];
-  const [features, routes] = await Promise.all([
+  const [features, walks, rides] = await Promise.all([
     withinWait(Promise.all(getParkFeatures(places)), 'park features'),
-    withinWait(Promise.all(getRoundTripWalks(origin, places)), 'round trips'),
+    withinWait(Promise.all(getRoundTripWalks(origin, walkPlaces)), 'round trips'),
+    ride && ridePlaces.length > 0
+      ? withinWait(Promise.all(getRoundTripRides(origin, ride.station, ridePlaces)), 'bike trips')
+      : null,
   ]);
-  const parks = places.map((place, index) => ({
-    ...place,
-    features: features?.[index] ?? null,
-    roundTripMin: routes?.[index].durationMin ?? null,
-  }));
+  const featuresOf = (index: number) => features?.[index] ?? null;
+
   // The search radius assumes a typical detour, so some real round trips take longer than the time available.
-  return parks.filter((park) => park.roundTripMin === null || park.roundTripMin <= availableMinutes);
+  const walkParks = walkPlaces
+    .map((place, index) => ({
+      ...place,
+      features: featuresOf(index),
+      roundTripMin: walks?.[index].durationMin ?? null,
+      bikeOnly: false,
+      bikeTripMin: null,
+    }))
+    .filter((park) => park.roundTripMin === null || park.roundTripMin <= availableMinutes);
+  // A bike-only park that couldn't be measured might not fit at all, so it is left out.
+  const rideParks = ridePlaces
+    .map((place, index) => ({
+      ...place,
+      features: featuresOf(walkPlaces.length + index),
+      roundTripMin: null,
+      bikeOnly: true,
+      bikeTripMin: rides?.[index].durationMin ?? null,
+    }))
+    .filter((park) => park.bikeTripMin !== null && park.bikeTripMin <= availableMinutes)
+    .slice(-MAX_BIKE_ONLY_PARKS);
+  return [...walkParks, ...rideParks];
 }
 
 export async function getConditions(
@@ -70,15 +132,15 @@ export async function getConditions(
   availableMinutes: number,
   preferences: Preferences | null,
 ): Promise<Conditions> {
+  const stations =
+    availableMinutes >= MIN_BIKE_MINUTES
+      ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
+      : Promise.resolve(null);
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
-    availableMinutes >= MIN_BIKE_MINUTES
-      ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
-      : null,
-    optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []).then((places) =>
-      withDetails(origin, places, availableMinutes),
-    ),
+    stations,
+    findParks(origin, availableMinutes, preferences, stations),
   ]);
   return {
     availableMinutes,
@@ -118,6 +180,7 @@ function conditionsSummary({ weather, airQuality }: Conditions) {
 
 const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b/i;
 const HANGUL = /\p{Script=Hangul}/u;
+const BIKE_WORDS = /\b(bikes?|bicycles?|cycl\w*|ride|riding)\b/i;
 const PARK_WORDS = /\b(parks?|gardens?|forests?|groves?|trails?|arboretum)\b|공원|숲/i;
 const CAPITALIZED_WORDS = ['celsius', 'fahrenheit', 'european', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -309,10 +372,15 @@ function wantedFeatures(preferences: Preferences | null): Set<Feature> {
 const matchScore = (park: Park, wanted: Set<Feature>) =>
   park.features?.filter((feature) => wanted.has(feature)).length ?? 0;
 
-/** The park with the most wanted features; parks are sorted by distance, so ties go to the farthest, which uses the time best. */
-function preferredPark({ nearbyParks, preferences }: Conditions) {
+/**
+ * The park with the most wanted features; parks are sorted by distance, so ties go to the farthest, which uses
+ * the time best. Bike-only parks count only for a bike trip.
+ */
+function preferredPark({ nearbyParks, preferences }: Conditions, byBike = false) {
   const wanted = wantedFeatures(preferences);
-  return nearbyParks.reduce<Park | undefined>(
+  return nearbyParks
+    .filter((park) => byBike || !park.bikeOnly)
+    .reduce<Park | undefined>(
     (best, park) => (!best || matchScore(park, wanted) >= matchScore(best, wanted) ? park : best),
     undefined,
   );
@@ -340,15 +408,16 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
     };
   }
 
-  const stationWithBikes = nearbyBikeStations?.find((station) => station.bikesAvailable > 0);
+  const stationWithBikes = firstStationWithBikes(nearbyBikeStations);
   if (stationWithBikes && preferences?.cycling !== false) {
+    const rideTo = preferredPark(conditions, true);
     return {
       verdict: 'go',
-      activity: `Grab a bike at ${stationWithBikes.name} and ride`,
+      activity: `Grab a bike at ${stationWithBikes.name} and ride${rideTo ? ` to ${rideTo.name}` : ''}`,
       durationMin: availableMinutes,
       reason: `${summary}, and ${stationWithBikes.bikesAvailable} bikes are waiting ${stationWithBikes.distanceMeters}m away.`,
       bikeStationId: stationWithBikes.id,
-      placeId: park?.id,
+      placeId: rideTo?.id,
     };
   }
 
@@ -369,8 +438,11 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   // The map must show the park the person reads about, even when placeId points elsewhere or is empty.
   const namedPark = nearbyParks.find((place) => modelActivity.includes(place.name));
   const modelPark = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
-  const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
-  const stationAllowed = stationExists && conditions.preferences?.cycling !== false;
+  const modelStation = nearbyBikeStations?.find((station) => station.id === recommendation.bikeStationId);
+  const saysBike = BIKE_WORDS.test(modelActivity);
+  // Gemma sometimes picks a station but describes a walk; a walkable park then stays the walk the person reads.
+  const stationAllowed =
+    modelStation !== undefined && conditions.preferences?.cycling !== false && (saysBike || modelPark?.bikeOnly);
   // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
   // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed.
@@ -385,11 +457,18 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   // next to the real name ("Walk to 경 경찰기념공원"), so name the real one instead.
   const strayHangul = namedPark !== undefined && HANGUL.test(modelActivity.replace(namedPark.name, ''));
   const garbledPark = park && (!namedPark || strayHangul);
-  const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(modelActivity);
+  // A bike-only park is too far to walk, so the trip needs a bike even when Gemma didn't pick a station.
+  const addedStation = park?.bikeOnly && !stationAllowed ? firstStationWithBikes(nearbyBikeStations) : undefined;
+  const rideStation = stationAllowed ? modelStation : addedStation;
+  const unwantedBike = !stationAllowed && saysBike;
   const activity =
-    recommendation.verdict === 'go' && !stationAllowed && (switchedPark || garbledPark || unwantedBike)
-      ? walk
-      : modelActivity;
+    recommendation.verdict !== 'go'
+      ? modelActivity
+      : park && rideStation && (addedStation || garbledPark || !saysBike)
+        ? `Grab a bike at ${rideStation.name} and ride to ${park.name}`
+        : !stationAllowed && (switchedPark || garbledPark || unwantedBike)
+          ? walk
+          : modelActivity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
@@ -406,7 +485,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,
-    bikeStationId: stationAllowed ? recommendation.bikeStationId : null,
+    bikeStationId: rideStation?.id ?? null,
     outfit: recommendation.outfit
       ? withRequiredExtras(recommendation.outfit, weather, airQuality)
       : conditions.baselineOutfit,
