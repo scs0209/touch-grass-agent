@@ -29,9 +29,9 @@ pnpm dev                # web on http://localhost:5173, API on :8787
 
 Set `SEOUL_OPEN_API_KEY` in `apps/server/.env` to include Ddareungi (Seoul public bike) stations within 500m. Without it the app still works everywhere.
 
-Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, and the Gemma call, including latency and token usage. The traces include step inputs and outputs, so your location and the prompt leave your machine. Leave it empty and nothing is sent.
+Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, the Gemma call, and every outgoing API request, including latency and token usage. The traces include step inputs and outputs, so your location and the prompt leave your machine; the Seoul API key is masked in request URLs. Leave it empty and nothing is sent.
 
-<p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: gather-conditions, ask-gemma with the agent run and the Gemma call, check-answer, plan-route" width="800"></p>
+<p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM route request runs while Gemma is thinking, so plan-route takes 0 ms" width="800"></p>
 
 ## How it works
 
@@ -40,6 +40,20 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
 - `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
 - `apps/web` renders the route with Leaflet + OpenStreetMap, and the outfit as a layered SVG avatar next to item cards.
+
+## Agent sessions
+
+This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here.
+
+To record and read sessions on another machine, sign in to GitHub with access to that repository and enable Entire once:
+
+```bash
+brew install --cask entireio/tap/entire
+entire enable --agent cursor   # installs the git hooks; the Cursor hooks are already in .cursor/hooks.json
+entire checkpoint list         # fetches checkpoints from the private repository
+```
+
+Without Entire installed, the Cursor hooks do nothing.
 
 ## Credits
 
