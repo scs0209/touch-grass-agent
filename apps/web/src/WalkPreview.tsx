@@ -28,8 +28,8 @@ interface Video {
 const FRAME_RATE = 30;
 /** Keeps a 30-second clip under about 10 MB so messaging apps accept it. */
 const VIDEO_BITS_PER_SECOND = 2_500_000;
-/** Photos need more bits; still keeps a 35-second film under WhatsApp's 16 MB media limit. */
-const FILM_BITS_PER_SECOND = 3_500_000;
+/** The full-size flyover needs more bits; still keeps a 37-second film under WhatsApp's 16 MB media limit. */
+const FILM_BITS_PER_SECOND = 3_200_000;
 /** Safari records MP4 only; Chrome and Firefox record WebM. */
 const VIDEO_TYPES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
 /** How long to wait for the browser to allow sound before asking for a tap. */
@@ -174,11 +174,14 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   useEffect(() => {
     let cancelled = false;
     const abort = new AbortController();
-    // Real photos when there are enough of them; otherwise the illustrated story.
+    // The 3D flyover when the map loads; otherwise the illustrated story.
     loadFilm(input, BPM[mood], abort.signal)
       .catch(() => null)
       .then(async (film) => {
-        if (cancelled) return;
+        if (cancelled) {
+          film?.dispose();
+          return;
+        }
         if (film) {
           filmRef.current = film;
           setHasFilm(true);
@@ -194,6 +197,8 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
       cancelled = true;
       abort.abort();
       stopRun();
+      filmRef.current?.dispose();
+      filmRef.current = null;
       void audioRef.current?.close();
       audioRef.current = null;
     };

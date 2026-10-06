@@ -29,8 +29,8 @@ export type RecommendRequest = z.infer<typeof recommendRequestSchema>;
 const latLonSchema = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) });
 
 export const tripPhotosRequestSchema = z.object({
-  /** The way there, from home to where the route meets the park. */
-  path: z.array(latLonSchema).min(2).max(5000),
+  /** Where the route meets the park; the same as destination when there is no route. */
+  entrance: latLonSchema,
   destination: latLonSchema,
   placeName: z.string().min(1).max(200),
 });

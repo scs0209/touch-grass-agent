@@ -1,6 +1,6 @@
 import { distanceInMeters, type LatLon } from '../geo.js';
 
-export type ShotKind = 'street' | 'arrival' | 'place';
+export type ShotKind = 'arrival' | 'place';
 
 export interface TripPhoto {
   /** Key for GET /api/trip-photos/:key, which serves the image from this server so the canvas stays untainted. */
@@ -13,7 +13,6 @@ export interface TripPhoto {
 }
 
 export interface TripPhotos {
-  street: TripPhoto[];
   arrival: TripPhoto | null;
   place: TripPhoto[];
 }
@@ -42,17 +41,14 @@ const MAPILLARY_FIELDS =
   'id,thumb_2048_url,computed_compass_angle,compass_angle,captured_at,is_pano,sequence,creator,computed_geometry,geometry';
 const MAPILLARY_LICENSE = 'CC BY-SA 4.0';
 const USER_AGENT = 'touch-grass-agent/1.0 (https://github.com/scs0209/touch-grass-agent)';
-/** A search slower than this just leaves that spot without a photo, so one slow answer can't hold up the film. */
+/** A search slower than this is left out, so one slow answer can't hold up the film. */
 const REQUEST_TIMEOUT_MS = 5000;
 const PHOTO_TIMEOUT_MS = 7000;
 
-const STREET_SHOTS = 8;
-/** Widen only as far as the same neighborhood; farther photos would show other streets. */
-const STREET_SEARCH_M = [25, 60, 150];
-/** How far a photo may look away from the walking direction and still read as "on the way". */
+/** How far a photo may look away from the way into the park and still show it. */
 const MAX_HEADING_OFF = 55;
-/** Fewer photos than this along the way and the film falls back to the illustrated preview. */
-const MIN_STREET_SHOTS = 4;
+/** Closer than this, the entrance and the park's center give no direction to look in. */
+const MIN_APPROACH_M = 10;
 const ARRIVAL_SEARCH_M = 50;
 const PLACE_SEARCH_M = 150;
 const PLACE_SHOTS = 3;
@@ -114,18 +110,6 @@ function bbox({ lat, lon }: LatLon, radiusM: number) {
   return [lon - dLon, lat - dLat, lon + dLon, lat + dLat].map((value) => value.toFixed(6)).join(',');
 }
 
-/** The point `distance` meters along `path`, and the walking direction there. */
-function along(path: LatLon[], cumulative: number[], distance: number) {
-  let i = cumulative.findIndex((value) => value >= distance);
-  if (i <= 0) i = 1;
-  const [a, b] = [path[i - 1], path[i]];
-  const part = (distance - cumulative[i - 1]) / (cumulative[i] - cumulative[i - 1] || 1);
-  return {
-    point: { lat: a.lat + (b.lat - a.lat) * part, lon: a.lon + (b.lon - a.lon) * part },
-    heading: bearing(a, b),
-  };
-}
-
 // ---------- Mapillary ----------
 
 interface Search {
@@ -168,59 +152,23 @@ function mapillaryCandidate(image: MapillaryImage, kind: ShotKind): Candidate {
   };
 }
 
-/** Lower is better: facing the right way first, then newer photos, then staying on the same capture sequence. */
-function score(image: MapillaryImage, heading: number, previousSequence?: string) {
+/** Lower is better: facing the right way first, then newer photos. */
+function score(image: MapillaryImage, heading: number) {
   const facing = angleBetween(imageHeading(image) ?? heading + 180, heading);
   const ageYears = image.captured_at ? (Date.now() - image.captured_at) / (365 * 24 * 3600 * 1000) : 10;
-  return facing + ageYears * 4 - (previousSequence && image.sequence === previousSequence ? 15 : 0);
-}
-
-function pickFacing(images: MapillaryImage[], heading: number, used: Set<string>, previousSequence?: string) {
-  return images
-    .filter((image) => !used.has(image.id))
-    .filter((image) => {
-      const facing = imageHeading(image);
-      return facing !== undefined && angleBetween(facing, heading) <= MAX_HEADING_OFF;
-    })
-    .sort((a, b) => score(a, heading, previousSequence) - score(b, heading, previousSequence))[0];
-}
-
-async function streetShots(search: Search, path: LatLon[]): Promise<Candidate[]> {
-  const cumulative = [0];
-  for (let i = 1; i < path.length; i++) cumulative.push(cumulative[i - 1] + distanceInMeters(path[i - 1], path[i]));
-  const total = cumulative.at(-1) ?? 0;
-  if (total < 50) return [];
-
-  // Skip the doorstep and the last stretch, which the arrival shot covers.
-  const spots = Array.from({ length: STREET_SHOTS }, (_, i) => along(path, cumulative, total * (0.05 + (0.85 * i) / (STREET_SHOTS - 1))));
-  const found = await Promise.all(
-    spots.map(async ({ point, heading }) => {
-      let images: MapillaryImage[] = [];
-      for (const radius of STREET_SEARCH_M) {
-        if (search.cancel.aborted) break;
-        images = await searchMapillary(search, point, radius).catch(() => []);
-        if (pickFacing(images, heading, new Set())) break;
-      }
-      return images;
-    }),
-  );
-
-  const used = new Set<string>();
-  const shots: Candidate[] = [];
-  let previousSequence: string | undefined;
-  spots.forEach(({ heading }, i) => {
-    const image = pickFacing(found[i], heading, used, previousSequence);
-    if (!image) return;
-    used.add(image.id);
-    previousSequence = image.sequence;
-    shots.push(mapillaryCandidate(image, 'street'));
-  });
-  return shots;
+  return facing + ageYears * 4;
 }
 
 /** A photo taken near where the route meets the park, looking into it. */
-function arrivalShot(images: MapillaryImage[], entrance: LatLon, destination: LatLon, used: Set<string>) {
-  const image = pickFacing(images, bearing(entrance, destination), used);
+function arrivalShot(images: MapillaryImage[], entrance: LatLon, destination: LatLon) {
+  if (distanceInMeters(entrance, destination) < MIN_APPROACH_M) return null;
+  const heading = bearing(entrance, destination);
+  const image = images
+    .filter((candidate) => {
+      const facing = imageHeading(candidate);
+      return facing !== undefined && angleBetween(facing, heading) <= MAX_HEADING_OFF;
+    })
+    .sort((a, b) => score(a, heading) - score(b, heading))[0];
   return image ? mapillaryCandidate(image, 'arrival') : null;
 }
 
@@ -347,38 +295,34 @@ async function wikimediaPlaceShots(destination: LatLon, placeName: string, cance
 const withKey = ({ url, photo }: Candidate): TripPhoto => ({ key: remember(url), ...photo });
 
 /**
- * Real photos for the walk preview: street-level photos along the way there, one at the park's edge,
- * and a few of the park itself. Returns null when there is no Mapillary token or too few photos.
+ * Real photos of the park for the end of the walk preview: one taken at its edge looking in, and a few
+ * taken inside or named after it. Returns null when there is no Mapillary token or no photo at all.
  */
 export async function getTripPhotos(
-  path: LatLon[],
+  entrance: LatLon,
   destination: LatLon,
   placeName: string,
   cancel: AbortSignal = new AbortController().signal,
 ): Promise<TripPhotos | null> {
   const token = process.env.MAPILLARY_ACCESS_TOKEN;
-  if (!token || path.length < 2) return null;
+  if (!token) return null;
 
   const search = { token, cancel };
-  const entrance = path.at(-1)!;
-  const [street, commons, nearEntrance, inPark] = await Promise.all([
-    streetShots(search, path),
+  const [commons, nearEntrance, inPark] = await Promise.all([
     wikimediaPlaceShots(destination, placeName, cancel).catch(() => []),
     searchMapillary(search, entrance, ARRIVAL_SEARCH_M).catch(() => []),
     searchMapillary(search, destination, PLACE_SEARCH_M).catch(() => []),
   ]);
-  if (street.length < MIN_STREET_SHOTS || cancel.aborted) return null;
+  if (cancel.aborted) return null;
 
-  const used = new Set(street.map((shot) => shot.id));
-  const arrival = arrivalShot(nearEntrance, entrance, destination, used);
-  if (arrival) used.add(arrival.id);
+  const arrival = arrivalShot(nearEntrance, entrance, destination);
+  const used = new Set(arrival ? [arrival.id] : []);
   // Eye-level photos taken in the park show the place itself; Commons photos named after it are often
   // close-ups of a flower or a sign, so they only fill in.
   const place = [...mapillaryPlaceShots(inPark, destination, used), ...commons].slice(0, PLACE_SHOTS);
   if (!arrival && place.length === 0) return null;
 
   return {
-    street: street.map(withKey),
     arrival: arrival ? withKey(arrival) : null,
     place: place.map(withKey),
   };

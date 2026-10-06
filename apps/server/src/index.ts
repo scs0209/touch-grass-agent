@@ -25,9 +25,9 @@ app.post('/api/trip-photos', async (c) => {
   const parsed = tripPhotosRequestSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: 'Invalid trip' }, 400);
 
-  const { path, destination, placeName } = parsed.data;
+  const { entrance, destination, placeName } = parsed.data;
   try {
-    return c.json({ photos: await getTripPhotos(path, destination, placeName, c.req.raw.signal) });
+    return c.json({ photos: await getTripPhotos(entrance, destination, placeName, c.req.raw.signal) });
   } catch (error) {
     console.error(error);
     return c.json({ photos: null });
