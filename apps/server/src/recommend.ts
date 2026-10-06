@@ -68,14 +68,28 @@ function conditionsSummary({ weather, airQuality }: Conditions) {
   return `${weather.temperatureC}°C, ${weather.description}, air quality ${airQuality.level}`;
 }
 
-const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b|공원|마당|광장/i;
+const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b/i;
+const HANGUL = /\p{Script=Hangul}/u;
+const CAPITALIZED_WORDS = ['celsius', 'fahrenheit', 'european', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+/** A capitalized word after the first one is usually a name, e.g. "a visit to Joseukingmardang". */
+function hasName(sentence: string, allowed: Set<string>) {
+  return sentence
+    .split(/\s+/)
+    .slice(1)
+    .map((word) => word.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, ''))
+    .some((word) => /^\p{Lu}\p{Ll}/u.test(word) && !allowed.has(word.toLowerCase()));
+}
 
 /** The reason should only cite conditions; a park named there may be garbled or differ from the map. */
 function withoutPlaceNames(reason: string, conditions: Conditions) {
+  const { weather, airQuality, nearbyParks } = conditions;
+  const allowed = new Set([...CAPITALIZED_WORDS, ...`${weather.description} ${airQuality.level}`.toLowerCase().split(/\s+/)]);
   const sentences = reason
     .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence))
-    .filter((sentence) => !conditions.nearbyParks.some((park) => sentence.includes(park.name)));
+    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence) && !HANGUL.test(sentence))
+    .filter((sentence) => !hasName(sentence, allowed))
+    .filter((sentence) => !nearbyParks.some((park) => sentence.includes(park.name)));
   return sentences.length > 0 ? sentences.join(' ') : `${conditionsSummary(conditions)}.`;
 }
 
