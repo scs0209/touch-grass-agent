@@ -8,7 +8,7 @@ import { getRoundTripWalk, prefetchRoundTripWalks, type Route } from './conditio
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
-import { recommendationSchema, type Recommendation } from './schema.js';
+import { recommendationSchema, type Interest, type Preferences, type Recommendation } from './schema.js';
 
 export interface Park extends Place {
   /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
@@ -22,6 +22,8 @@ export interface Conditions {
   nearbyBikeStations: BikeStation[] | null;
   nearbyParks: Park[];
   baselineOutfit: Outfit;
+  /** Null when the person lets the AI decide everything. */
+  preferences: Preferences | null;
 }
 
 const MODEL_ATTEMPTS = 2;
@@ -46,7 +48,11 @@ async function withFeatures(parks: Place[]): Promise<Park[]> {
   return parks.map((park, index) => ({ ...park, features: ready?.[index] ?? null }));
 }
 
-export async function getConditions(origin: LatLon, availableMinutes: number): Promise<Conditions> {
+export async function getConditions(
+  origin: LatLon,
+  availableMinutes: number,
+  preferences: Preferences | null,
+): Promise<Conditions> {
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
@@ -60,6 +66,7 @@ export async function getConditions(origin: LatLon, availableMinutes: number): P
     nearbyBikeStations,
     nearbyParks,
     baselineOutfit: baselineOutfit(weather, airQuality),
+    preferences,
   };
 }
 
@@ -184,11 +191,36 @@ function checkThingsToDo(items: string[] | null | undefined, park: Park | undefi
   return checked.length > 0 ? checked : fallbackThingsToDo(features, conditions);
 }
 
+const EXERCISE_FEATURES: Feature[] = ['sports field', 'running track', 'outdoor gym'];
+const INTEREST_FEATURES: Record<Interest, Feature[]> = {
+  exercise: EXERCISE_FEATURES,
+  water: ['water'],
+  views: ['viewpoint'],
+  greenery: [],
+  quiet: [],
+};
+
+/** Features that match the person's answers, used to rank parks when the model isn't available. */
+function wantedFeatures(preferences: Preferences | null): Set<Feature> {
+  if (!preferences) return new Set();
+  return new Set([
+    ...preferences.interests.flatMap((interest) => INTEREST_FEATURES[interest]),
+    ...(preferences.pace === 'workout' ? EXERCISE_FEATURES : []),
+    ...(preferences.company === 'kids' ? (['playground'] as Feature[]) : []),
+  ]);
+}
+
+/** The park with the most wanted features; parks are sorted by distance, so ties go to the farthest, which uses the time best. */
+function preferredPark({ nearbyParks, preferences }: Conditions) {
+  const wanted = wantedFeatures(preferences);
+  const score = (park: Park) => park.features?.filter((feature) => wanted.has(feature)).length ?? 0;
+  return nearbyParks.reduce<Park | undefined>((best, park) => (!best || score(park) >= score(best) ? park : best), undefined);
+}
+
 export function fallbackRecommendation(conditions: Conditions): Recommendation {
-  const { weather, availableMinutes, nearbyBikeStations, nearbyParks } = conditions;
+  const { weather, availableMinutes, nearbyBikeStations, preferences } = conditions;
   const summary = conditionsSummary(conditions);
-  // Parks are sorted by distance and all fit the time budget, so the farthest uses the time best.
-  const park = nearbyParks.at(-1);
+  const park = preferredPark(conditions);
 
   if (isUnsafeOutside(conditions)) {
     return {
@@ -200,7 +232,7 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
   }
 
   const stationWithBikes = nearbyBikeStations?.find((station) => station.bikesAvailable > 0);
-  if (stationWithBikes && availableMinutes >= 30) {
+  if (stationWithBikes && availableMinutes >= 30 && preferences?.cycling !== false) {
     return {
       verdict: 'go',
       activity: `Grab a bike at ${stationWithBikes.name} and ride`,
@@ -227,8 +259,13 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
   const park = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
+  const stationAllowed = stationExists && conditions.preferences?.cycling !== false;
+  const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
   // Small models romanize Korean park names into places that don't exist, so name the real one instead.
-  const activity = park && !namedPark && !stationExists ? `Walk to ${park.name} and back` : recommendation.activity;
+  const garbledPark = park && !namedPark;
+  const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(recommendation.activity);
+  const activity =
+    recommendation.verdict === 'go' && !stationAllowed && (garbledPark || unwantedBike) ? walk : recommendation.activity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
@@ -241,7 +278,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,
-    bikeStationId: stationExists ? recommendation.bikeStationId : null,
+    bikeStationId: stationAllowed ? recommendation.bikeStationId : null,
     outfit: recommendation.outfit
       ? withRequiredExtras(recommendation.outfit, weather, airQuality)
       : conditions.baselineOutfit,

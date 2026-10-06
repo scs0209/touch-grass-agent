@@ -10,7 +10,7 @@ app.get('/api/health', (c) => c.json({ ok: true, model: OLLAMA_MODEL }));
 
 app.post('/api/recommend', async (c) => {
   const parsed = recommendRequestSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: 'Invalid location' }, 400);
+  if (!parsed.success) return c.json({ error: 'Invalid location or preferences' }, 400);
 
   try {
     return c.json(await recommend(parsed.data));

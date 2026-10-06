@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Avatar } from './Avatar';
 import { OutfitCards, type Outfit } from './OutfitCards';
+import { loadChoice, saveChoice, summarize, type Preferences, type SavedChoice } from './preferences';
+import { Questionnaire } from './Questionnaire';
 import { ResultMap } from './ResultMap';
 import { WeatherPanel, type WeatherConditions } from './WeatherPanel';
 
@@ -53,11 +55,11 @@ const MIN_MINUTES = 10;
 const MAX_MINUTES = 240;
 const MINUTE_STEP = 5;
 
-async function fetchRecommendation(lat: number, lon: number, availableMinutes: number) {
+async function fetchRecommendation(lat: number, lon: number, availableMinutes: number, preferences: Preferences | null) {
   const response = await fetch('/api/recommend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lat, lon, availableMinutes }),
+    body: JSON.stringify({ lat, lon, availableMinutes, preferences }),
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error ?? 'Something went wrong.');
@@ -89,11 +91,14 @@ export function App() {
   const [availableMinutes, setAvailableMinutes] = useState(30);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [city, setCity] = useState('');
+  const [choice, setChoice] = useState<SavedChoice | null>(loadChoice);
+  const [editingChoice, setEditingChoice] = useState(false);
 
   async function recommendFor(lat: number, lon: number) {
     setStatus({ kind: 'loading', message: 'Checking the sky, the air, and nearby bikes…' });
+    const preferences = choice?.mode === 'custom' ? choice.preferences : null;
     try {
-      setStatus({ kind: 'done', result: await fetchRecommendation(lat, lon, availableMinutes) });
+      setStatus({ kind: 'done', result: await fetchRecommendation(lat, lon, availableMinutes, preferences) });
     } catch (error) {
       setStatus({ kind: 'error', message: (error as Error).message });
     }
@@ -125,6 +130,19 @@ export function App() {
     }
   }
 
+  if (!choice || editingChoice) {
+    return (
+      <Questionnaire
+        initial={choice}
+        onDone={(picked) => {
+          saveChoice(picked);
+          setChoice(picked);
+          setEditingChoice(false);
+        }}
+      />
+    );
+  }
+
   if (status.kind === 'done') {
     return <ResultCard result={status.result} onReset={() => setStatus({ kind: 'idle' })} />;
   }
@@ -132,6 +150,12 @@ export function App() {
   return (
     <main className="screen">
       <h1>Should I go out?</h1>
+      <p className="muted small">
+        {summarize(choice)} ·{' '}
+        <button className="link" onClick={() => setEditingChoice(true)}>
+          Edit
+        </button>
+      </p>
 
       <section className="panel">
         <p className="muted">How much time do you have?</p>

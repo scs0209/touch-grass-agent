@@ -31,6 +31,14 @@ Rules:
   A negative minutesUntilSunset means it is already dark: prefer well-lit places.
 - If it is raining, likely to rain soon, or air quality is "poor" or worse, set verdict to "stay"
   and suggest something small they can do by a window or balcony instead. Use placeId null.
+- preferences holds the person's answers to a short questionnaire; null means they want you to decide freely.
+  Use them to choose among the given parks and to shape the activity and thingsToDo:
+  pace "easy" means a relaxed stroll and sitting, "active" a brisk walk, "workout" jogging or exercise.
+  interests "exercise" fits parks with a sports field, running track, or outdoor gym; "water" fits parks
+  with water; "views" fits a viewpoint; "greenery" and "quiet" fit calm walks among trees.
+  company "kids" prefers a park with a playground, "dog" a long walk with room to sniff around,
+  "friends" something to do together. Preferences never override the safety rules or the features rule.
+- If preferences.cycling is false, never set bikeStationId or mention bikes.
 - If a nearby bike station has bikes, you may mention it and set bikeStationId to that station's id.
   Only mention bikes or cycling when you set bikeStationId; otherwise describe the trip as a walk.
 - The reason must cite the actual numbers you were given (temperature, rain chance, air quality, etc.) in at most two sentences.

@@ -12,7 +12,7 @@ One tap, one suggestion, then put your phone away.
   <img src="docs/outfit-cold.png" width="250" alt="Outfit for people who run cold, shown on an avatar and item cards">
 </p>
 
-The app checks the weather, air quality, nearby parks, and (in Seoul) public bikes, then asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have. It suggests a few things to do once you get there, shows a round-trip walking route on a map, and dresses an avatar for the weather.
+On your first visit, a short questionnaire asks how you like to move, what you enjoy, who usually comes along, and whether you ride public bikes; you can also skip it and let the AI decide everything. The app then checks the weather, air quality, nearby parks, and (in Seoul) public bikes, and asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have and your answers. It suggests a few things to do once you get there, shows a round-trip walking route on a map, and dresses an avatar for the weather.
 
 ## Run locally
 
@@ -29,7 +29,7 @@ pnpm dev                # web on http://localhost:5173, API on :8787
 
 Set `SEOUL_OPEN_API_KEY` in `apps/server/.env` to include Ddareungi (Seoul public bike) stations within 500m. Without it the app still works everywhere.
 
-Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, the Gemma call, and every outgoing API request, including latency and token usage. The traces include step inputs and outputs, so your location and the prompt leave your machine; the Seoul API key is masked in request URLs. Leave it empty and nothing is sent.
+Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, the Gemma call, and every outgoing API request, including latency and token usage. The traces include step inputs and outputs, so your location, your questionnaire answers, and the prompt leave your machine; the Seoul API key is masked in request URLs. Leave it empty and nothing is sent.
 
 <p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM route request runs while Gemma is thinking, so plan-route takes 0 ms" width="800"></p>
 
@@ -40,6 +40,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 - `apps/server/src/agent.ts` is a Mastra agent pointed at Ollama's OpenAI-compatible endpoint. The model only picks from real candidate parks and a fixed clothing catalog, so it never invents coordinates or items.
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
 - `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
+- Questionnaire answers are saved in the browser's localStorage and sent with each request. Gemma uses them to choose among the real parks, and the rule-based fallback ranks parks by matching features (exercise prefers a sports field or track, kids prefer a playground). Answering "walking only" removes bikes from every suggestion.
 - `apps/web` renders the route with Leaflet + OpenStreetMap, and the outfit as a layered SVG avatar next to item cards.
 
 ## Agent sessions
