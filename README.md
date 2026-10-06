@@ -42,7 +42,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 <p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM round-trip request runs during gather-conditions, which stops waiting for the slow Overpass request after 3 seconds, so plan-route takes 1 ms" width="800"></p>
 
-Code style is checked with [Biome](https://biomejs.dev) (`biome.json`): `pnpm format` formats the code, `pnpm check` checks formatting, lint, and import order, and `pnpm check:fix` fixes what it can. `pnpm typecheck` runs the type check, Biome lint, and the nested-ternary check. In VS Code or Cursor, install the recommended Biome extension (`.vscode/extensions.json`) to format and sort imports on save.
+Code style is checked with [Biome](https://biomejs.dev) (`biome.json`): `pnpm format` formats the code, `pnpm check` checks formatting, lint, and import order, and `pnpm check:fix` fixes what it can. `pnpm typecheck` runs the type check, Biome lint, and the nested-ternary check. In VS Code or Cursor, install the [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) to format and sort imports on save (`.vscode/settings.json`).
 
 ## How it works
 
