@@ -38,6 +38,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 - `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, what each park has (playground, water, viewpoint, and so on) from Overpass, walking routes from OSRM (all keyless), and Seoul bike stations. The public Overpass server is often slow, so the app waits at most 3 seconds for it and caches park features for a day.
 - Things to do at the park may only mention facilities that OpenStreetMap shows there; the server drops any suggestion that names a missing facility or another place.
+- The reason is checked against the measured conditions: a sentence whose temperature, rain chance, air quality index, UV, or wind doesn't match, or that mentions rain when the chance is low (or denies it when rain is likely), is dropped.
 - `apps/server/src/agent.ts` is a Mastra agent pointed at Ollama's OpenAI-compatible endpoint. The model only picks from real candidate parks and a fixed clothing catalog, so it never invents coordinates or items.
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
 - `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
@@ -46,7 +47,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 ## Agent sessions
 
-This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here.
+This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here. Early sessions are mostly in Korean; since October 6, 2026 the agent answers in both English and Korean (`.cursor/rules/response-language.mdc`).
 
 To record and read sessions on another machine, sign in to GitHub with access to that repository and enable Entire once:
 

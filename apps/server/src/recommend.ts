@@ -131,11 +131,58 @@ function namesAPlace(text: string, { weather, airQuality, nearbyParks }: Conditi
   return HANGUL.test(text) || hasName(text, allowed) || nearbyParks.some((park) => text.includes(park.name));
 }
 
-/** The reason should only cite conditions; a park named there may be garbled or differ from the map. */
-function withoutPlaceNames(reason: string, conditions: Conditions) {
+/** Below this chance, with nothing falling now, rain isn't worth mentioning. */
+const RAIN_UNLIKELY_PERCENT = 20;
+/** At or above this chance, or while it's falling, saying "no rain" is wrong. */
+const RAIN_LIKELY_PERCENT = 50;
+const RAIN_WORDS = /\b(rain\w*|precipitation|showers?|drizzle)\b/i;
+/** A denial next to the rain word, like "no chance of rain" or "rain is unlikely", not any "not" in the sentence. */
+const NO_RAIN_WORDS =
+  /\b(?:no|zero|without)\b(?:\W+\w+){0,2}?\W+(?:rain|precipitation|showers?|drizzle)|\b(?:rain|precipitation|showers?)\w*(?:\W+\w+){0,2}?\W+(?:unlikely|not expected)|\bdry\b|\b0\s?%/i;
+
+const numbersBefore = (sentence: string, unit: RegExp) =>
+  [...sentence.matchAll(new RegExp(`(-?\\d+(?:\\.\\d+)?)\\s?${unit.source}`, 'gi'))].map((match) => Number(match[1]));
+const numberAfter = (sentence: string, label: RegExp) => {
+  const match = sentence.match(new RegExp(`${label.source}\\D{0,12}?(\\d+(?:\\.\\d+)?)`, 'i'));
+  return match ? Number(match[1]) : undefined;
+};
+const near = (value: number, targets: number[], tolerance: number) =>
+  targets.some((target) => Math.abs(value - target) <= tolerance);
+
+/** True if a sentence states a number or rain outlook that the measured conditions don't support. */
+function contradictsConditions(sentence: string, { weather, airQuality }: Conditions) {
+  const rainChances = [weather.maxPrecipitationChanceNext3h, ...weather.precipitationChanceByHour.map((hour) => hour.chance)];
+  const falling = weather.precipitationMm > 0;
+  const mentionsRain = RAIN_WORDS.test(sentence);
+  const deniesRain = NO_RAIN_WORDS.test(sentence);
+  if (mentionsRain && !deniesRain && !falling && weather.maxPrecipitationChanceNext3h < RAIN_UNLIKELY_PERCENT) return true;
+  if (mentionsRain && deniesRain && (falling || weather.maxPrecipitationChanceNext3h >= RAIN_LIKELY_PERCENT)) return true;
+
+  const temperatures = numbersBefore(sentence, /°\s?C/);
+  const percents = mentionsRain ? numbersBefore(sentence, /%/) : [];
+  const winds = numbersBefore(sentence, /km\/?h/);
+  const aqi = numberAfter(sentence, /air quality index/);
+  const uv = numberAfter(sentence, /\bUV(?: index)?/);
+  return (
+    temperatures.some((value) => !near(value, [weather.temperatureC, weather.feelsLikeC], 1)) ||
+    percents.some((value) => !near(value, rainChances, 5)) ||
+    winds.some((value) => !near(value, [weather.windKmh], 2)) ||
+    (aqi !== undefined && !near(aqi, [airQuality.europeanAqi], 2)) ||
+    (uv !== undefined && !near(uv, [weather.uvIndex], 1))
+  );
+}
+
+function rainNote(weather: Weather) {
+  const relevant = weather.precipitationMm > 0 || weather.maxPrecipitationChanceNext3h >= RAIN_UNLIKELY_PERCENT;
+  return relevant ? `, ${weather.maxPrecipitationChanceNext3h}% chance of rain` : '';
+}
+
+/** The reason should only cite measured conditions; a park named there may be garbled or differ from the map. */
+function checkReason(reason: string, conditions: Conditions) {
   const sentences = reason
     .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence) && !namesAPlace(sentence, conditions));
+    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence) && !namesAPlace(sentence, conditions))
+    .filter((sentence) => !contradictsConditions(sentence, conditions));
   return sentences.length > 0 ? sentences.join(' ') : `${conditionsSummary(conditions)}.`;
 }
 
@@ -247,7 +294,7 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
       verdict: 'stay',
       activity: 'Open a window and stretch for 10 minutes',
       durationMin: 10,
-      reason: `It's not a great time to head out (${summary}, ${weather.maxPrecipitationChanceNext3h}% chance of rain).`,
+      reason: `It's not a great time to head out (${summary}${rainNote(weather)}).`,
     };
   }
 
@@ -298,7 +345,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   return {
     ...recommendation,
     activity,
-    reason: withoutPlaceNames(recommendation.reason, conditions),
+    reason: checkReason(recommendation.reason, conditions),
     // The model's ideas were written for the park it picked, so a switched park gets ideas from its own features.
     thingsToDo:
       recommendation.verdict === 'go'
