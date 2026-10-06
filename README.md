@@ -17,6 +17,8 @@ On your first visit, a short questionnaire asks how you like to move, what you e
 
 ## Run locally
 
+Using an AI coding agent? Ask it to set up the project from [AGENTS.md](AGENTS.md). It installs and starts everything, checks that it works, and gives you links for the optional API keys.
+
 Requirements: Node 22.13+, pnpm, [Ollama](https://ollama.com).
 
 ```bash
