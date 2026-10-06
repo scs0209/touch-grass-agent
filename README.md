@@ -57,7 +57,7 @@ entire enable --agent cursor   # installs the git hooks; the Cursor hooks are al
 entire checkpoint list         # fetches checkpoints from the private repository
 ```
 
-Without Entire installed, the Cursor hooks do nothing.
+Without Entire installed, the Entire hooks do nothing. `.cursor/hooks.json` also has a `stop` hook (`.cursor/hooks/readme-check.mjs`) that reminds the agent once to check this README when code under `apps/` changed and the README didn't.
 
 ## Credits
 
