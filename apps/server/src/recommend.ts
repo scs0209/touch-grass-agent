@@ -102,20 +102,23 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
 
 export function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
   const { nearbyBikeStations, nearbyParks, availableMinutes, weather, airQuality } = conditions;
-  const placeExists = nearbyParks.some((place) => place.id === recommendation.placeId);
-  // The model sometimes names a park in the activity but leaves placeId empty.
+  const chosenPark = nearbyParks.find((place) => place.id === recommendation.placeId);
+  // The map must show the park the person reads about, even when placeId points elsewhere or is empty.
   const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
-  const placeId = placeExists ? recommendation.placeId : namedPark?.id;
+  const park = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
+  // Small models romanize Korean park names into places that don't exist, so name the real one instead.
+  const activity = park && !namedPark && !stationExists ? `Walk to ${park.name} and back` : recommendation.activity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
 
   return {
     ...recommendation,
+    activity,
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
-    placeId: recommendation.verdict === 'go' ? (placeId ?? null) : null,
+    placeId: park?.id ?? null,
     bikeStationId: stationExists ? recommendation.bikeStationId : null,
     outfit: recommendation.outfit
       ? withRequiredExtras(recommendation.outfit, weather, airQuality)
