@@ -3,13 +3,14 @@
 One tap, one suggestion, then put your phone away.
 
 <p align="center">
-  <img src="docs/demo.gif" width="300" alt="Choosing 60 minutes, getting a park walk with a route map, and switching outfits for people who run cold or warm">
+  <img src="docs/demo.gif" width="300" alt="Answering the questionnaire, choosing 60 minutes in Seoul, getting a park walk with things to do, the weather, and a route map, then switching outfits for people who run cold or warm">
 </p>
 
 <p align="center">
-  <img src="docs/home.png" width="250" alt="Home screen with the time slider">
-  <img src="docs/result.png" width="250" alt="Suggested park walk with the weather panel and a round-trip route on the map">
-  <img src="docs/outfit-cold.png" width="250" alt="Outfit for people who run cold, shown on an avatar and item cards">
+  <img src="docs/questionnaire.png" width="200" alt="First-visit questionnaire with a button to let the AI decide everything">
+  <img src="docs/home.png" width="200" alt="Home screen with a summary of the saved answers and the time slider">
+  <img src="docs/result.png" width="200" alt="Suggested walk to a park with a playground, things to do there, and the weather panel">
+  <img src="docs/outfit-cold.png" width="200" alt="Outfit for people who run cold, shown on an avatar and item cards">
 </p>
 
 On your first visit, a short questionnaire asks how you like to move, what you enjoy, who usually comes along, and whether you ride public bikes; you can also skip it and let the AI decide everything. The app then checks the weather, air quality, nearby parks, and (in Seoul) public bikes, and asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have and your answers. It suggests a few things to do once you get there, shows a round-trip walking route on a map, and dresses an avatar for the weather.
@@ -41,7 +42,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
 - `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
 - Questionnaire answers are saved in the browser's localStorage and sent with each request. Gemma uses them to choose among the real parks, and parks are ranked by matching features (exercise prefers a sports field or track, kids prefer a playground). If Gemma picks a park known to match none of the answers while another park does, the server switches to that park; the rule-based fallback uses the same ranking. Answering "walking only" removes bikes from every suggestion.
-- `apps/web` renders the route with Leaflet + OpenStreetMap, and the outfit as a layered SVG avatar next to item cards.
+- `apps/web` shows the questionnaire on the first visit, the suggestion with things to do, a weather panel (sky icon, hourly rain chance for the next 3 hours, air quality, UV, wind, and sunset), the route with Leaflet + OpenStreetMap, and the outfit as a layered SVG avatar next to item cards.
 
 ## Agent sessions
 
@@ -59,7 +60,7 @@ Without Entire installed, the Cursor hooks do nothing.
 
 ## Credits
 
-- Clothing icons: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D by Microsoft, MIT ([license](apps/web/public/fluent-emoji/LICENSE)).
+- Clothing and weather icons: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D by Microsoft, MIT ([license](apps/web/public/fluent-emoji/LICENSE)).
 - Glass styling: the glassmorphism skill and `apps/web/src/glass-tokens.css` come from [fengshao1227/ccg-workflow](https://github.com/fengshao1227/ccg-workflow), MIT ([license](.cursor/skills/glassmorphism/LICENSE)).
 - Map tiles, parks, and park features: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim and the [Overpass API](https://overpass-api.de).
 - Walking routes: [OSRM](https://project-osrm.org) on FOSSGIS's [routing.openstreetmap.de](https://routing.openstreetmap.de).
