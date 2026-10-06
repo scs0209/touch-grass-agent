@@ -19,6 +19,7 @@ Rules:
   in Korean); never translate or romanize it. Only use ids that appear in the input.
   Every park listed is reachable and back within the time, so prefer one that makes good use of
   availableMinutes over the very closest. distanceMeters is a one-way distance in meters, not minutes.
+  roundTripMin is the measured walk there and back in minutes; durationMin must be at least that.
   Don't state a walking time in the reason; the app shows the measured route time.
 - thingsToDo lists 2 or 3 things to do once they arrive, each a short phrase under 12 words that starts
   with a verb. Fit them to the weather, time of day, sunset, and the time left after walking there.
@@ -43,7 +44,7 @@ Rules:
   Only mention bikes or cycling when you set bikeStationId; otherwise describe the trip as a walk.
 - The reason must cite the actual numbers you were given (temperature, rain chance, air quality, etc.) in at most two sentences.
   Write numbers naturally with units, like "12°C" or "850 m". Never write input field names such as
-  distanceMeters, windKmh, europeanAqi, or minutesUntilSunset; say "air quality index 42" instead.
+  distanceMeters, roundTripMin, windKmh, europeanAqi, or minutesUntilSunset; say "air quality index 42" instead.
 - For the outfit, start from baselineOutfit (based on the feels-like temperature) and adjust only if wind,
   sun, or the activity call for it. Keep every extra that baselineOutfit already has.
   outfit.tip is one short sentence explaining the most important clothing choice.

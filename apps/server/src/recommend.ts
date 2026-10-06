@@ -4,7 +4,7 @@ import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
 import { getParkFeatures, type Feature } from './conditions/features.js';
 import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
-import { getRoundTripWalk, prefetchRoundTripWalks, type Route } from './conditions/route.js';
+import { getRoundTripWalk, getRoundTripWalks, type Route } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
@@ -13,6 +13,8 @@ import { recommendationSchema, type Interest, type Preferences, type Recommendat
 export interface Park extends Place {
   /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
   features: Feature[] | null;
+  /** Measured walking time there and back; null when the router didn't answer in time. */
+  roundTripMin: number | null;
 }
 
 export interface Conditions {
@@ -27,8 +29,8 @@ export interface Conditions {
 }
 
 const MODEL_ATTEMPTS = 2;
-/** Overpass usually answers in about 3 s; past that the model plans without features. */
-const FEATURES_WAIT_MS = 3000;
+/** Overpass usually answers in about 3 s and OSRM in about 1 s; past that the model plans without them. */
+const DETAILS_WAIT_MS = 3000;
 const MAX_THINGS_TO_DO = 3;
 
 function optional<T>(promise: Promise<T>, label: string, fallback: T) {
@@ -38,14 +40,27 @@ function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   });
 }
 
-/** A slow answer still lands in the features cache, so asking again from the same spot gets it. */
-async function withFeatures(parks: Place[]): Promise<Park[]> {
-  if (parks.length === 0) return [];
-  const features = Promise.all(getParkFeatures(parks));
-  const lists = await optional(Promise.race([features, sleep(FEATURES_WAIT_MS, 'late' as const)]), 'park features', null);
-  if (lists === 'late') console.warn(`Skipping park features: no answer within ${FEATURES_WAIT_MS} ms`);
-  const ready = Array.isArray(lists) ? lists : null;
-  return parks.map((park, index) => ({ ...park, features: ready?.[index] ?? null }));
+/** A slow answer still lands in its cache, so asking again from the same spot gets it. */
+async function withinWait<T>(promise: Promise<T>, label: string): Promise<T | null> {
+  const result = await optional(Promise.race([promise, sleep(DETAILS_WAIT_MS, 'late' as const)]), label, null);
+  if (result !== 'late') return result;
+  console.warn(`Skipping ${label}: no answer within ${DETAILS_WAIT_MS} ms`);
+  return null;
+}
+
+async function withDetails(origin: LatLon, places: Place[], availableMinutes: number): Promise<Park[]> {
+  if (places.length === 0) return [];
+  const [features, routes] = await Promise.all([
+    withinWait(Promise.all(getParkFeatures(places)), 'park features'),
+    withinWait(Promise.all(getRoundTripWalks(origin, places)), 'round trips'),
+  ]);
+  const parks = places.map((place, index) => ({
+    ...place,
+    features: features?.[index] ?? null,
+    roundTripMin: routes?.[index].durationMin ?? null,
+  }));
+  // The search radius assumes a typical detour, so some real round trips take longer than the time available.
+  return parks.filter((park) => park.roundTripMin === null || park.roundTripMin <= availableMinutes);
 }
 
 export async function getConditions(
@@ -57,7 +72,9 @@ export async function getConditions(
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
     optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null),
-    optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []).then(withFeatures),
+    optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []).then((places) =>
+      withDetails(origin, places, availableMinutes),
+    ),
   ]);
   return {
     availableMinutes,
@@ -343,8 +360,10 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
 export function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
   const { nearbyBikeStations, nearbyParks, availableMinutes, weather, airQuality } = conditions;
   const chosenPark = nearbyParks.find((place) => place.id === recommendation.placeId);
+  // Gemma often writes "Citizen’s Park" for "Citizen's Park".
+  const modelActivity = recommendation.activity.replace(/[‘’]/g, "'");
   // The map must show the park the person reads about, even when placeId points elsewhere or is empty.
-  const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
+  const namedPark = nearbyParks.find((place) => modelActivity.includes(place.name));
   const modelPark = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
   const stationAllowed = stationExists && conditions.preferences?.cycling !== false;
@@ -352,7 +371,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
   // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed.
   const unlistedPark =
-    recommendation.verdict === 'go' && !modelPark && !stationAllowed && PARK_WORDS.test(recommendation.activity)
+    recommendation.verdict === 'go' && !modelPark && !stationAllowed && PARK_WORDS.test(modelActivity)
       ? preferredPark(conditions)
       : undefined;
   const switchedPark = matchingPark ?? unlistedPark;
@@ -360,13 +379,13 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
   // Small models romanize Korean park names into places that don't exist, or leave stray syllables
   // next to the real name ("Walk to 경 경찰기념공원"), so name the real one instead.
-  const strayHangul = namedPark !== undefined && HANGUL.test(recommendation.activity.replace(namedPark.name, ''));
+  const strayHangul = namedPark !== undefined && HANGUL.test(modelActivity.replace(namedPark.name, ''));
   const garbledPark = park && (!namedPark || strayHangul);
-  const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(recommendation.activity);
+  const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(modelActivity);
   const activity =
     recommendation.verdict === 'go' && !stationAllowed && (switchedPark || garbledPark || unwantedBike)
       ? walk
-      : recommendation.activity;
+      : modelActivity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
@@ -390,11 +409,6 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   };
 }
 
-/** Routes to every candidate park, fetched while the model is still choosing so plan-route rarely waits. */
-export function prefetchRoutes(origin: LatLon, conditions: Conditions) {
-  if (!isUnsafeOutside(conditions)) prefetchRoundTripWalks(origin, conditions.nearbyParks);
-}
-
 export async function askModel(agent: Agent, conditions: Conditions): Promise<Recommendation | null> {
   const prompt = `Current conditions:\n${JSON.stringify(conditions, null, 2)}`;
 
@@ -414,16 +428,14 @@ export async function askModel(agent: Agent, conditions: Conditions): Promise<Re
 export type Source = 'model' | 'fallback';
 
 export async function buildResponse(origin: LatLon, conditions: Conditions, checked: Recommendation, source: Source) {
-  const { availableMinutes } = conditions;
   const { outfit, placeId, bikeStationId, ...recommendation } = checked;
 
   const place = conditions.nearbyParks.find((park) => park.id === placeId);
   const bikeStation = conditions.nearbyBikeStations?.find((station) => station.id === bikeStationId);
   const route: Route | null = place ? await optional(getRoundTripWalk(origin, place), 'route', null) : null;
-  // The card's duration must cover the real round trip shown on the map.
-  const durationMin = route
-    ? Math.min(Math.max(recommendation.durationMin, route.durationMin), availableMinutes)
-    : recommendation.durationMin;
+  // The card's duration must cover the real round trip shown on the map, even when that is over the time
+  // available (only when the round trip couldn't be measured before the park was chosen).
+  const durationMin = route ? Math.max(recommendation.durationMin, route.durationMin) : recommendation.durationMin;
 
   return {
     recommendation: { ...recommendation, durationMin },

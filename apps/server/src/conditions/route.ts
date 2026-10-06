@@ -91,10 +91,11 @@ function cached(origin: LatLon, destination: LatLon) {
   return entry && entry.expiresAt > Date.now() ? entry.route : undefined;
 }
 
-/** Starts fetching round trips to all destinations in the background so the chosen one is ready later. */
-export function prefetchRoundTripWalks(origin: LatLon, destinations: LatLon[]) {
+/** Round trips to every destination, fetched in one request except for those still cached. */
+export function getRoundTripWalks(origin: LatLon, destinations: LatLon[]): Promise<Route>[] {
   const missing = destinations.filter((destination) => !cached(origin, destination));
-  if (missing.length > 0) remember(origin, missing);
+  const fetched = missing.length > 0 ? remember(origin, missing) : [];
+  return destinations.map((destination) => cached(origin, destination) ?? fetched[missing.indexOf(destination)]);
 }
 
 export function getRoundTripWalk(origin: LatLon, destination: LatLon): Promise<Route> {

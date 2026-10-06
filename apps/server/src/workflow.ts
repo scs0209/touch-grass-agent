@@ -7,7 +7,6 @@ import {
   buildResponse,
   fallbackRecommendation,
   getConditions,
-  prefetchRoutes,
   sanitize,
   type Conditions,
   type RecommendResponse,
@@ -33,7 +32,7 @@ const response = z.custom<RecommendResponse>();
 
 const gatherConditions = createStep({
   id: 'gather-conditions',
-  description: 'Weather, air quality, walkable parks, and Seoul bike stations around the person',
+  description: 'Weather, air quality, parks whose round trip fits the time, and Seoul bike stations around the person',
   inputSchema: recommendRequestSchema,
   outputSchema: gathered,
   execute: async ({ inputData: { lat, lon, availableMinutes, preferences } }) => {
@@ -48,7 +47,6 @@ const askGemma = createStep({
   inputSchema: gathered,
   outputSchema: answered,
   execute: async ({ inputData, mastra }) => {
-    prefetchRoutes(inputData.origin, inputData.conditions);
     const agent = mastra?.getAgent('touchGrassAgent') ?? touchGrassAgent;
     return { ...inputData, modelRecommendation: await askModel(agent, inputData.conditions) };
   },
