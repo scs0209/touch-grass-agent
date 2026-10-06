@@ -2,6 +2,16 @@
 
 One tap, one suggestion, then put your phone away.
 
+<p align="center">
+  <img src="docs/demo.gif" width="300" alt="Choosing 60 minutes, getting a park walk with a route map, and switching outfits for people who run cold or warm">
+</p>
+
+<p align="center">
+  <img src="docs/home.png" width="250" alt="Home screen with the time slider">
+  <img src="docs/result.png" width="250" alt="Suggested park walk with a round-trip route on the map">
+  <img src="docs/outfit-cold.png" width="250" alt="Outfit for people who run cold, shown on an avatar and item cards">
+</p>
+
 The app checks the weather, air quality, nearby parks, and (in Seoul) public bikes, then asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have. It shows a round-trip walking route on a map and dresses an avatar for the weather.
 
 ## Run locally

@@ -103,12 +103,15 @@ function fallbackRecommendation(conditions: Conditions): Recommendation {
 function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
   const { nearbyBikeStations, nearbyParks, availableMinutes, weather, airQuality } = conditions;
   const placeExists = nearbyParks.some((place) => place.id === recommendation.placeId);
+  // The model sometimes names a park in the activity but leaves placeId empty.
+  const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
+  const placeId = placeExists ? recommendation.placeId : namedPark?.id;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
 
   return {
     ...recommendation,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
-    placeId: placeExists && recommendation.verdict === 'go' ? recommendation.placeId : null,
+    placeId: recommendation.verdict === 'go' ? (placeId ?? null) : null,
     bikeStationId: stationExists ? recommendation.bikeStationId : null,
     outfit: recommendation.outfit
       ? withRequiredExtras(recommendation.outfit, weather, airQuality)
@@ -144,9 +147,13 @@ export async function recommend({ lat, lon, availableMinutes }: RecommendRequest
   const place = conditions.nearbyParks.find((park) => park.id === placeId);
   const bikeStation = conditions.nearbyBikeStations?.find((station) => station.id === bikeStationId);
   const route: Route | null = place ? await optional(getRoundTripWalk(origin, place), 'route', null) : null;
+  // The card's duration must cover the real round trip shown on the map.
+  const durationMin = route
+    ? Math.min(Math.max(recommendation.durationMin, route.durationMin), availableMinutes)
+    : recommendation.durationMin;
 
   return {
-    recommendation,
+    recommendation: { ...recommendation, durationMin },
     outfits: outfitOptions(outfit ?? conditions.baselineOutfit, conditions.weather, conditions.airQuality),
     origin,
     place: place ? { name: place.name, lat: place.lat, lon: place.lon } : null,
