@@ -163,12 +163,17 @@ const FEATURE_IDEAS: Partial<Record<Feature, string>> = {
   'drinking fountain': 'Refill your water at the drinking fountain',
 };
 
-function fallbackThingsToDo(features: Feature[], { weather, availableMinutes }: Conditions) {
+function fallbackThingsToDo(features: Feature[], { weather, availableMinutes, preferences }: Conditions) {
   const ideas: string[] = [];
   if (weather.minutesUntilSunset > 0 && weather.minutesUntilSunset < availableMinutes) {
     ideas.push(`Catch the sunset around ${weather.sunset.slice(11, 16)}`);
   }
-  ideas.push(...features.flatMap((feature) => FEATURE_IDEAS[feature] ?? []));
+  const wanted = wantedFeatures(preferences);
+  const relaxed = preferences?.pace === 'easy' && !preferences.interests.includes('exercise');
+  const wantedFirst = features
+    .filter((feature) => !(relaxed && EFFORT_FEATURES.includes(feature)))
+    .sort((a, b) => Number(wanted.has(b)) - Number(wanted.has(a)));
+  ideas.push(...wantedFirst.flatMap((feature) => FEATURE_IDEAS[feature] ?? []));
   ideas.push('Stretch your legs and shoulders for five minutes', 'Spot three signs of the season around you');
   return ideas.slice(0, MAX_THINGS_TO_DO);
 }
@@ -192,6 +197,8 @@ function checkThingsToDo(items: string[] | null | undefined, park: Park | undefi
 }
 
 const EXERCISE_FEATURES: Feature[] = ['sports field', 'running track', 'outdoor gym'];
+/** Ideas at these features mean working out, which doesn't fit an easy, relaxed pace. */
+const EFFORT_FEATURES: Feature[] = ['running track', 'outdoor gym'];
 const INTEREST_FEATURES: Record<Interest, Feature[]> = {
   exercise: EXERCISE_FEATURES,
   water: ['water'],
@@ -210,11 +217,24 @@ function wantedFeatures(preferences: Preferences | null): Set<Feature> {
   ]);
 }
 
+const matchScore = (park: Park, wanted: Set<Feature>) =>
+  park.features?.filter((feature) => wanted.has(feature)).length ?? 0;
+
 /** The park with the most wanted features; parks are sorted by distance, so ties go to the farthest, which uses the time best. */
 function preferredPark({ nearbyParks, preferences }: Conditions) {
   const wanted = wantedFeatures(preferences);
-  const score = (park: Park) => park.features?.filter((feature) => wanted.has(feature)).length ?? 0;
-  return nearbyParks.reduce<Park | undefined>((best, park) => (!best || score(park) >= score(best) ? park : best), undefined);
+  return nearbyParks.reduce<Park | undefined>(
+    (best, park) => (!best || matchScore(park, wanted) >= matchScore(best, wanted) ? park : best),
+    undefined,
+  );
+}
+
+/** A park that matches the answers when the model's pick is known to match none of them. */
+function betterMatch(park: Park, conditions: Conditions) {
+  const wanted = wantedFeatures(conditions.preferences);
+  const best = preferredPark(conditions);
+  const pickIsKnownMiss = park.features !== null && matchScore(park, wanted) === 0;
+  return pickIsKnownMiss && best && matchScore(best, wanted) > 0 ? best : undefined;
 }
 
 export function fallbackRecommendation(conditions: Conditions): Recommendation {
@@ -257,15 +277,20 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const chosenPark = nearbyParks.find((place) => place.id === recommendation.placeId);
   // The map must show the park the person reads about, even when placeId points elsewhere or is empty.
   const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
-  const park = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
+  const modelPark = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
   const stationAllowed = stationExists && conditions.preferences?.cycling !== false;
+  // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
+  const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
+  const park = matchingPark ?? modelPark;
   const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
   // Small models romanize Korean park names into places that don't exist, so name the real one instead.
   const garbledPark = park && !namedPark;
   const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(recommendation.activity);
   const activity =
-    recommendation.verdict === 'go' && !stationAllowed && (garbledPark || unwantedBike) ? walk : recommendation.activity;
+    recommendation.verdict === 'go' && !stationAllowed && (matchingPark || garbledPark || unwantedBike)
+      ? walk
+      : recommendation.activity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
@@ -274,7 +299,11 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     ...recommendation,
     activity,
     reason: withoutPlaceNames(recommendation.reason, conditions),
-    thingsToDo: recommendation.verdict === 'go' ? checkThingsToDo(recommendation.thingsToDo, park, conditions) : [],
+    // The model's ideas were written for the park it picked, so a switched park gets ideas from its own features.
+    thingsToDo:
+      recommendation.verdict === 'go'
+        ? checkThingsToDo(matchingPark ? null : recommendation.thingsToDo, park, conditions)
+        : [],
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,
