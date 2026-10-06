@@ -9,7 +9,7 @@ One tap, one suggestion, then put your phone away.
 
 <p align="center">
   <img src="docs/questionnaire.png" width="200" alt="First-visit questionnaire with a button to let the AI decide everything">
-  <img src="docs/home.png" width="200" alt="Home screen with a summary of the saved answers and the time slider">
+  <img src="docs/home.png" width="200" alt="Home screen with a summary of the saved answers, an Edit answers button, and the time slider">
   <img src="docs/result.png" width="200" alt="Suggested walk to a park with a playground, things to do there, the Preview your walk button, and the weather panel">
   <img src="docs/outfit-cold.png" width="200" alt="Outfit for people who run cold, shown on an avatar and item cards">
 </p>
