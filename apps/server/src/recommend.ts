@@ -72,13 +72,31 @@ const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b/i;
 const HANGUL = /\p{Script=Hangul}/u;
 const CAPITALIZED_WORDS = ['celsius', 'fahrenheit', 'european', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+const SUBJECTS = [
+  'it', 'this', 'that', 'there', 'here', 'what', 'today', 'tonight', 'now', 'everything', 'nothing', 'outside',
+  'air', 'weather', 'temperature', 'wind', 'rain', 'sun', 'sunset', 'sky', 'skies', 'uv', 'conditions', 'humidity', 'visibility',
+];
+const PREDICATES = new Set([
+  'is', 'was', 'has', 'offers', 'provides', 'looks', 'feels', 'seems', 'sits', 'lies', 'awaits', 'makes',
+  'would', 'will', 'should', 'can', 'could', 'might',
+]);
+
 /** A capitalized word after the first one is usually a name, e.g. "a visit to Joseukingmardang". */
 function hasName(sentence: string, allowed: Set<string>) {
-  return sentence
-    .split(/\s+/)
+  const words = sentence.split(/\s+/).map((word) => word.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, ''));
+  const [first = '', second = ''] = words;
+  const firstBase = first.replace(/['’]s$/, '').toLowerCase();
+  // The first word is always capitalized, so only treat it as a name when it is the subject, as in "Joseukingmardang is lovely".
+  const startsWithName =
+    /^\p{Lu}\p{Ll}/u.test(first) &&
+    !allowed.has(firstBase) &&
+    !SUBJECTS.includes(firstBase) &&
+    !firstBase.endsWith('ing') &&
+    (first !== first.replace(/['’]s$/, '') || PREDICATES.has(second.toLowerCase()));
+  const namedLater = words
     .slice(1)
-    .map((word) => word.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, ''))
     .some((word) => /^\p{Lu}\p{Ll}/u.test(word) && !allowed.has(word.toLowerCase()));
+  return startsWithName || namedLater;
 }
 
 /** The reason should only cite conditions; a park named there may be garbled or differ from the map. */
