@@ -42,6 +42,8 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 <p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM round-trip request runs during gather-conditions, which stops waiting for the slow Overpass request after 3 seconds, so plan-route takes 1 ms" width="800"></p>
 
+Code style is checked with [Biome](https://biomejs.dev) (`biome.json`): `pnpm format` formats the code, `pnpm check` checks formatting, lint, and import order, and `pnpm check:fix` fixes what it can. `pnpm typecheck` runs the type check, Biome lint, and the nested-ternary check. In VS Code or Cursor, install the recommended Biome extension (`.vscode/extensions.json`) to format and sort imports on save.
+
 ## How it works
 
 - `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, what each park has (playground, water, viewpoint, and so on) from Overpass, walking and cycling routes from OSRM (all keyless), and Seoul bike stations. The public Overpass server is often slow, so the app waits at most 3 seconds for it and caches park features for a day.

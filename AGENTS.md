@@ -83,6 +83,10 @@ Answer in both English and Korean, because sessions may be shared with people wh
 
 Match the surrounding code: its naming, comment density, and idioms. On top of that:
 
+- **Formatting and imports follow Biome** (`biome.json`). Run `pnpm check:fix` before committing, and
+  `pnpm check` should pass. Don't add Prettier or ESLint. Biome lint runs inside `pnpm lint`; fix new
+  warnings in code you touch rather than turning rules off.
+
 - **No nested ternaries.** A ternary must not contain another ternary in its condition or either branch,
   including inside an object, array, call argument, or template literal in that branch. Use one of these:
   - a small named function with early returns (`describeRoute` in `apps/web/src/utils/result.ts`);
