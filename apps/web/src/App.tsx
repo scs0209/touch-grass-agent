@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Avatar } from './Avatar';
 import { OutfitCards, type Outfit } from './OutfitCards';
 import { ResultMap } from './ResultMap';
+import { WeatherPanel, type WeatherConditions } from './WeatherPanel';
 
 interface NamedPoint {
   name: string;
@@ -36,15 +37,7 @@ interface RecommendResponse {
   } | null;
   bikeStation: (NamedPoint & { bikesAvailable: number }) | null;
   source: 'model' | 'fallback';
-  conditions: {
-    temperatureC: number;
-    feelsLikeC: number;
-    description: string;
-    rainChance: number;
-    uvIndex: number;
-    airQuality: string;
-    sunset: string;
-  };
+  conditions: WeatherConditions;
 }
 
 type Status =
@@ -186,7 +179,6 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
   const { recommendation, conditions, outfits, origin, place, route, bikeStation, source } = result;
   const [fit, setFit] = useState<Fit>('normal');
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
-  const sunsetTime = conditions.sunset.slice(11, 16);
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
 
@@ -199,6 +191,8 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
         <p className="reason">{recommendation.reason}</p>
         {recommendation.safetyNote && <p className="note">{recommendation.safetyNote}</p>}
       </section>
+
+      <WeatherPanel conditions={conditions} />
 
       {isGo && destination && (
         <section className="panel">
@@ -234,11 +228,6 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
           <p className="muted small">{outfit.tip}</p>
         </section>
       )}
-
-      <p className="muted small conditions">
-        {conditions.temperatureC}°C (feels {Math.round(conditions.feelsLikeC)}°C) · {conditions.description} ·{' '}
-        {conditions.rainChance}% rain · UV {conditions.uvIndex} · air {conditions.airQuality} · sunset {sunsetTime}
-      </p>
 
       {isGo && destination && (
         <a

@@ -169,13 +169,19 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
       : null,
     source,
     conditions: {
+      isDay: conditions.weather.isDay,
       temperatureC: conditions.weather.temperatureC,
       feelsLikeC: conditions.weather.feelsLikeC,
       description: conditions.weather.description,
+      sky: conditions.weather.sky,
       rainChance: conditions.weather.maxPrecipitationChanceNext3h,
+      rainChanceByHour: conditions.weather.precipitationChanceByHour,
       uvIndex: conditions.weather.uvIndex,
+      windKmh: conditions.weather.windKmh,
       airQuality: conditions.airQuality.level,
+      airQualityIndex: conditions.airQuality.europeanAqi,
       sunset: conditions.weather.sunset,
+      minutesUntilSunset: conditions.weather.minutesUntilSunset,
     },
   };
 }
