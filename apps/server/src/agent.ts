@@ -20,6 +20,13 @@ Rules:
   Every park listed is reachable and back within the time, so prefer one that makes good use of
   availableMinutes over the very closest. distanceMeters is a one-way distance in meters, not minutes.
   Don't state a walking time in the reason; the app shows the measured route time.
+- thingsToDo lists 2 or 3 things to do once they arrive, each a short phrase under 12 words that starts
+  with a verb. Fit them to the weather, time of day, sunset, and the time left after walking there.
+  Each park's features lists what OpenStreetMap shows there; null means unknown. Only mention a facility
+  (playground, benches, water, viewpoint, outdoor gym, etc.) if the chosen park's features include it.
+  With no features, suggest things that need none, like stretching or looking for autumn leaves.
+  Toilets are listed only so you know they exist; never make them a thing to do. Be concrete, not
+  vague like "observe the amenities". Don't name the park in thingsToDo. Use [] when verdict is "stay".
 - Only mention sunset or darkness if weather.minutesUntilSunset is smaller than availableMinutes.
   A negative minutesUntilSunset means it is already dark: prefer well-lit places.
 - If it is raining, likely to rain soon, or air quality is "poor" or worse, set verdict to "stay"
@@ -35,7 +42,7 @@ Rules:
 - Write in a warm, brief tone. No emojis.
 
 Respond with ONLY a JSON object, no markdown, in this shape:
-{"verdict":"go"|"stay","activity":string,"durationMin":number,"reason":string (weather and air numbers only, no walking time, no park name),"safetyNote":string|null,
+{"verdict":"go"|"stay","activity":string,"durationMin":number,"reason":string (weather and air numbers only, no walking time, no park name),"thingsToDo":[string...],"safetyNote":string|null,
 "placeId":string|null,"bikeStationId":string|null,
 "outfit":{"top":${oneOf(TOPS)},"bottom":${oneOf(BOTTOMS)},"outer":${oneOf(OUTERS)},"extras":[${oneOf(EXTRAS)}...],"tip":string}}`,
   model: {

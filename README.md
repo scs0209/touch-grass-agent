@@ -12,7 +12,7 @@ One tap, one suggestion, then put your phone away.
   <img src="docs/outfit-cold.png" width="250" alt="Outfit for people who run cold, shown on an avatar and item cards">
 </p>
 
-The app checks the weather, air quality, nearby parks, and (in Seoul) public bikes, then asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have. It shows a round-trip walking route on a map and dresses an avatar for the weather.
+The app checks the weather, air quality, nearby parks, and (in Seoul) public bikes, then asks Gemma running locally through Ollama to pick a single outdoor activity that fits the time you have. It suggests a few things to do once you get there, shows a round-trip walking route on a map, and dresses an avatar for the weather.
 
 ## Run locally
 
@@ -35,7 +35,8 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 ## How it works
 
-- `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, walking routes from OSRM (all keyless), and Seoul bike stations.
+- `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, what each park has (playground, water, viewpoint, and so on) from Overpass, walking routes from OSRM (all keyless), and Seoul bike stations. The public Overpass server is often slow, so the app waits at most 3 seconds for it and caches park features for a day.
+- Things to do at the park may only mention facilities that OpenStreetMap shows there; the server drops any suggestion that names a missing facility or another place.
 - `apps/server/src/agent.ts` is a Mastra agent pointed at Ollama's OpenAI-compatible endpoint. The model only picks from real candidate parks and a fixed clothing catalog, so it never invents coordinates or items.
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
 - `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
@@ -59,7 +60,7 @@ Without Entire installed, the Cursor hooks do nothing.
 
 - Clothing icons: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D by Microsoft, MIT ([license](apps/web/public/fluent-emoji/LICENSE)).
 - Glass styling: the glassmorphism skill and `apps/web/src/glass-tokens.css` come from [fengshao1227/ccg-workflow](https://github.com/fengshao1227/ccg-workflow), MIT ([license](.cursor/skills/glassmorphism/LICENSE)).
-- Map tiles and parks: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim.
+- Map tiles, parks, and park features: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim and the [Overpass API](https://overpass-api.de).
 - Walking routes: [OSRM](https://project-osrm.org) on FOSSGIS's [routing.openstreetmap.de](https://routing.openstreetmap.de).
 - Weather, air quality, and city search: [Open-Meteo](https://open-meteo.com) (CC BY 4.0).
 - Seoul public bikes: [Seoul Open Data Plaza](https://data.seoul.go.kr).

@@ -191,6 +191,28 @@ input,
   margin: 0;
 }
 
+.things-to-do {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.things-to-do ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.things-to-do li {
+  padding: 8px 12px;
+  border-radius: var(--glass-radius);
+  background: rgba(47, 107, 58, 0.08);
+}
+
 .note {
   margin: 0;
   padding: 12px;

@@ -1,6 +1,8 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { Agent } from '@mastra/core/agent';
 import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
+import { getParkFeatures, type Feature } from './conditions/features.js';
 import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
 import { getRoundTripWalk, prefetchRoundTripWalks, type Route } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
@@ -8,16 +10,24 @@ import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
 import { recommendationSchema, type Recommendation } from './schema.js';
 
+export interface Park extends Place {
+  /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
+  features: Feature[] | null;
+}
+
 export interface Conditions {
   availableMinutes: number;
   weather: Weather;
   airQuality: AirQuality;
   nearbyBikeStations: BikeStation[] | null;
-  nearbyParks: Place[];
+  nearbyParks: Park[];
   baselineOutfit: Outfit;
 }
 
 const MODEL_ATTEMPTS = 2;
+/** Overpass usually answers in about 3 s; past that the model plans without features. */
+const FEATURES_WAIT_MS = 3000;
+const MAX_THINGS_TO_DO = 3;
 
 function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   return promise.catch((error) => {
@@ -26,12 +36,22 @@ function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   });
 }
 
+/** A slow answer still lands in the features cache, so asking again from the same spot gets it. */
+async function withFeatures(parks: Place[]): Promise<Park[]> {
+  if (parks.length === 0) return [];
+  const features = Promise.all(getParkFeatures(parks));
+  const lists = await optional(Promise.race([features, sleep(FEATURES_WAIT_MS, 'late' as const)]), 'park features', null);
+  if (lists === 'late') console.warn(`Skipping park features: no answer within ${FEATURES_WAIT_MS} ms`);
+  const ready = Array.isArray(lists) ? lists : null;
+  return parks.map((park, index) => ({ ...park, features: ready?.[index] ?? null }));
+}
+
 export async function getConditions(origin: LatLon, availableMinutes: number): Promise<Conditions> {
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
     optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null),
-    optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []),
+    optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []).then(withFeatures),
   ]);
   return {
     availableMinutes,
@@ -99,16 +119,69 @@ function hasName(sentence: string, allowed: Set<string>) {
   return startsWithName || namedLater;
 }
 
+function namesAPlace(text: string, { weather, airQuality, nearbyParks }: Conditions) {
+  const allowed = new Set([...CAPITALIZED_WORDS, ...`${weather.description} ${airQuality.level}`.toLowerCase().split(/\s+/)]);
+  return HANGUL.test(text) || hasName(text, allowed) || nearbyParks.some((park) => text.includes(park.name));
+}
+
 /** The reason should only cite conditions; a park named there may be garbled or differ from the map. */
 function withoutPlaceNames(reason: string, conditions: Conditions) {
-  const { weather, airQuality, nearbyParks } = conditions;
-  const allowed = new Set([...CAPITALIZED_WORDS, ...`${weather.description} ${airQuality.level}`.toLowerCase().split(/\s+/)]);
   const sentences = reason
     .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence) && !HANGUL.test(sentence))
-    .filter((sentence) => !hasName(sentence, allowed))
-    .filter((sentence) => !nearbyParks.some((park) => sentence.includes(park.name)));
+    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence) && !namesAPlace(sentence, conditions));
   return sentences.length > 0 ? sentences.join(' ') : `${conditionsSummary(conditions)}.`;
+}
+
+/** Words that mean a facility is there, so a suggestion using them needs that feature at the park. */
+const FEATURE_WORDS: Record<Feature, RegExp> = {
+  playground: /\b(playground|swings?|slides?|seesaw)\b/i,
+  'sports field': /\b(pitch|field|court|basketball|soccer|football|tennis|badminton|hoops)\b/i,
+  'running track': /\btrack\b/i,
+  'outdoor gym': /\b(outdoor gym|fitness|exercise equipment|pull-?ups?|workout station)\b/i,
+  benches: /\bbench(es)?\b/i,
+  'drinking fountain': /\b(fountain|drinking water|refill)\b/i,
+  toilets: /\b(toilets?|restrooms?|bathrooms?)\b/i,
+  viewpoint: /\b(viewpoint|lookout|overlook)\b/i,
+  water: /\b(pond|lake|stream|river|creek|ducks?|fish|koi|water's edge|by the water)\b/i,
+};
+
+const FEATURE_IDEAS: Partial<Record<Feature, string>> = {
+  viewpoint: 'Take in the view from the viewpoint',
+  water: 'Sit by the water for a few quiet minutes',
+  'outdoor gym': 'Do a few easy sets at the outdoor gym',
+  'running track': 'Jog one easy lap of the track',
+  'sports field': 'Watch a few minutes of a game at the sports field',
+  playground: 'Give the swings at the playground a try',
+  benches: 'Rest on a bench for a few minutes before heading back',
+  'drinking fountain': 'Refill your water at the drinking fountain',
+};
+
+function fallbackThingsToDo(features: Feature[], { weather, availableMinutes }: Conditions) {
+  const ideas: string[] = [];
+  if (weather.minutesUntilSunset > 0 && weather.minutesUntilSunset < availableMinutes) {
+    ideas.push(`Catch the sunset around ${weather.sunset.slice(11, 16)}`);
+  }
+  ideas.push(...features.flatMap((feature) => FEATURE_IDEAS[feature] ?? []));
+  ideas.push('Stretch your legs and shoulders for five minutes', 'Spot three signs of the season around you');
+  return ideas.slice(0, MAX_THINGS_TO_DO);
+}
+
+/** Facilities that are good to know about but aren't something to do. */
+const NOT_ACTIVITIES: Feature[] = ['toilets'];
+
+/** Keeps only suggestions the destination can support; unknown features count as none. */
+function checkThingsToDo(items: string[] | null | undefined, park: Park | undefined, conditions: Conditions) {
+  const features = park?.features ?? [];
+  const missing = (Object.keys(FEATURE_WORDS) as Feature[]).filter(
+    (feature) => !features.includes(feature) || NOT_ACTIVITIES.includes(feature),
+  );
+  const checked = (items ?? [])
+    .map((item) => item.trim().replace(/\.$/, ''))
+    .filter((item) => !/\bamenities\b/i.test(item))
+    .filter((item) => item && !namesAPlace(item, conditions))
+    .filter((item) => !missing.some((feature) => FEATURE_WORDS[feature].test(item)))
+    .slice(0, MAX_THINGS_TO_DO);
+  return checked.length > 0 ? checked : fallbackThingsToDo(features, conditions);
 }
 
 export function fallbackRecommendation(conditions: Conditions): Recommendation {
@@ -164,6 +237,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     ...recommendation,
     activity,
     reason: withoutPlaceNames(recommendation.reason, conditions),
+    thingsToDo: recommendation.verdict === 'go' ? checkThingsToDo(recommendation.thingsToDo, park, conditions) : [],
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,

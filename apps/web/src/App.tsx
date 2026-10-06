@@ -24,6 +24,7 @@ interface RecommendResponse {
     activity: string;
     durationMin: number;
     reason: string;
+    thingsToDo: string[];
     safetyNote?: string | null;
   };
   outfits: { fit: Fit; outfit: Outfit }[];
@@ -189,6 +190,16 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
         <h1>{recommendation.activity}</h1>
         <p className="duration">{recommendation.durationMin} minutes</p>
         <p className="reason">{recommendation.reason}</p>
+        {recommendation.thingsToDo.length > 0 && (
+          <div className="things-to-do">
+            <span className="tile-label">Once you're there</span>
+            <ul>
+              {recommendation.thingsToDo.map((thing) => (
+                <li key={thing}>{thing}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {recommendation.safetyNote && <p className="note">{recommendation.safetyNote}</p>}
       </section>
 

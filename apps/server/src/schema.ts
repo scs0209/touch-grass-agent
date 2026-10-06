@@ -15,6 +15,7 @@ export const recommendationSchema = z.object({
   durationMin: z.number().int().positive(),
   reason: z.string().min(1),
   safetyNote: z.string().nullish(),
+  thingsToDo: z.array(z.string()).nullish(),
   placeId: z.string().nullish(),
   bikeStationId: z.string().nullish(),
   outfit: outfitSchema.nullish(),
