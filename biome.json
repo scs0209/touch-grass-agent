@@ -45,7 +45,11 @@
         "noArrayIndexKey": "warn"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
       },
       "a11y": {
         "useButtonType": "warn",
