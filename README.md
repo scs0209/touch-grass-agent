@@ -4,7 +4,7 @@ One tap, one suggestion, then put your phone away.
 
 <p align="center">
   <img src="docs/demo.gif" width="300" alt="Answering the questionnaire, choosing 60 minutes in Seoul, getting a park walk with things to do, a Preview your walk button, the weather, and a route map opened full screen and closed again, then switching outfits for people who run cold or warm">
-  <img src="docs/preview.gif" width="270" alt="Walk preview video: a 3D map of central Seoul with your next 11 minutes and what to wear, diving down to street level, a green location puck walking the route to Cheonggyecheon Stream Park past 3D buildings, the camera circling the park, photos of the park as cards over a soft blurred copy with a thing to do under each, and a pull-back over the neighborhood with Ready when you are, a green underline, and when to leave and be back">
+  <img src="docs/preview.gif" width="270" alt="Highlights of the walk preview video: a 3D map of central Seoul with your next 11 minutes and what to wear, a green location puck walking the route to Cheonggyecheon Stream Park past 3D buildings, photos of the park as cards over a soft blurred copy with a thing to do under each, and a pull-back over the neighborhood with Ready when you are, a green underline, and when to leave and be back">
 </p>
 
 <p align="center">
