@@ -32,6 +32,8 @@ export interface Route {
   durationMin: number;
   rideMin: number;
   walkMin: number;
+  /** First and last index in coordinates of the part on the bike; null on foot. */
+  rideRange: [number, number] | null;
 }
 
 export interface StoryInput {

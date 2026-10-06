@@ -15,6 +15,8 @@ export interface Route {
   rideMin: number;
   /** Minutes on foot; on a bike trip, the walk to the station and back home from it. */
   walkMin: number;
+  /** First and last index in coordinates of the part on the bike; null on foot. */
+  rideRange: [number, number] | null;
 }
 
 /** A round trip on one travel mode, as the router returns it. */
@@ -125,6 +127,7 @@ const asWalk = ({ returnStart, ...trip }: RoundTrip): Route => ({
   mode: 'foot',
   rideMin: 0,
   walkMin: trip.durationMin,
+  rideRange: null,
 });
 
 /** Round trips on foot to every destination, fetched in one request except for those still cached. */
@@ -173,5 +176,6 @@ function asRide(walk: RoundTrip, ride: RoundTrip): Route {
     durationMin: walk.durationMin + ride.durationMin + RENT_AND_RETURN_MIN,
     rideMin: ride.durationMin,
     walkMin: walk.durationMin,
+    rideRange: [walk.returnStart, walk.returnStart + ride.coordinates.length - 1],
   };
 }
