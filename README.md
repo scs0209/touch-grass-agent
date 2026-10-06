@@ -8,7 +8,7 @@ One tap, one suggestion, then put your phone away.
 
 <p align="center">
   <img src="docs/home.png" width="250" alt="Home screen with the time slider">
-  <img src="docs/result.png" width="250" alt="Suggested park walk with a round-trip route on the map">
+  <img src="docs/result.png" width="250" alt="Suggested park walk with the weather panel and a round-trip route on the map">
   <img src="docs/outfit-cold.png" width="250" alt="Outfit for people who run cold, shown on an avatar and item cards">
 </p>
 
