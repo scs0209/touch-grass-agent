@@ -173,8 +173,9 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const abort = new AbortController();
     // Real photos when there are enough of them; otherwise the illustrated story.
-    loadFilm(input, BPM[mood])
+    loadFilm(input, BPM[mood], abort.signal)
       .catch(() => null)
       .then(async (film) => {
         if (cancelled) return;
@@ -191,6 +192,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
       });
     return () => {
       cancelled = true;
+      abort.abort();
       stopRun();
       void audioRef.current?.close();
       audioRef.current = null;

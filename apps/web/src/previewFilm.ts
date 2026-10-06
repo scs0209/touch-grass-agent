@@ -65,6 +65,10 @@ const SHOT_BEATS: Record<ShotKind, number> = { opening: 5, street: 2, arrival: 6
 const STREET_SHOTS_MAX = 7;
 const MIN_STREET_SHOTS = 4;
 const FADE_SEC = 0.35;
+/** A photo still loading after this is left out; the server itself gives up on a source after 7 seconds. */
+const PHOTO_WAIT_MS = 9000;
+/** Past this the preview stops waiting for photos and plays the illustrated story instead. */
+const SEARCH_WAIT_MS = 15000;
 
 const FONT = 'system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
 
@@ -73,7 +77,7 @@ const easeInOutSine = (x: number) => -(Math.cos(Math.PI * x) - 1) / 2;
 
 // ---------- loading ----------
 
-async function fetchTripPhotos(input: StoryInput): Promise<TripPhotos | null> {
+async function fetchTripPhotos(input: StoryInput, signal: AbortSignal): Promise<TripPhotos | null> {
   const there = pathThere(input);
   // pathThere ends at the park itself; the server wants the way up to the park's edge.
   const path = input.route ? there.slice(0, -1) : there;
@@ -81,6 +85,7 @@ async function fetchTripPhotos(input: StoryInput): Promise<TripPhotos | null> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, destination: input.destination, placeName: input.placeName }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(SEARCH_WAIT_MS)]),
   });
   if (!response.ok) return null;
   return ((await response.json()) as { photos: TripPhotos | null }).photos;
@@ -101,14 +106,15 @@ function grade(image: HTMLImageElement, input: StoryInput) {
 async function loadPhoto(photo: TripPhoto, input: StoryInput) {
   const image = new Image();
   image.src = `/api/trip-photos/${photo.key}`;
-  await image.decode();
+  const tooSlow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Photo too slow')), PHOTO_WAIT_MS));
+  await Promise.race([image.decode(), tooSlow]);
   return grade(image, input);
 }
 
 /** Loads real photos of the way and the park; null when there are too few to make a film. */
-export async function loadFilm(input: StoryInput, bpm: number): Promise<Film | null> {
-  const photos = await fetchTripPhotos(input);
-  if (!photos) return null;
+export async function loadFilm(input: StoryInput, bpm: number, signal: AbortSignal): Promise<Film | null> {
+  const photos = await fetchTripPhotos(input, signal);
+  if (!photos || signal.aborted) return null;
 
   const all = [...photos.street, ...(photos.arrival ? [photos.arrival] : []), ...photos.place];
   const loaded = await Promise.all(all.map((photo) => loadPhoto(photo, input).catch(() => null)));
@@ -388,7 +394,9 @@ function drawCredits(ctx: CanvasRenderingContext2D, film: Film, alpha: number) {
   ctx.font = `500 26px ${FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillStyle = `rgba(255, 255, 255, ${0.75 * alpha})`;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * alpha})`;
   // Below the preview's close and mute buttons.
   let y = 280;
   for (const credit of film.credits) {

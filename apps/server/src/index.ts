@@ -27,7 +27,7 @@ app.post('/api/trip-photos', async (c) => {
 
   const { path, destination, placeName } = parsed.data;
   try {
-    return c.json({ photos: await getTripPhotos(path, destination, placeName) });
+    return c.json({ photos: await getTripPhotos(path, destination, placeName, c.req.raw.signal) });
   } catch (error) {
     console.error(error);
     return c.json({ photos: null });
@@ -36,14 +36,9 @@ app.post('/api/trip-photos', async (c) => {
 
 /** Serves photos from this origin so the preview canvas can record them. */
 app.get('/api/trip-photos/:key', async (c) => {
-  const response = await fetchTripPhoto(c.req.param('key'));
-  if (!response) return c.json({ error: 'Photo unavailable' }, 404);
-  return new Response(response.body, {
-    headers: {
-      'Content-Type': response.headers.get('Content-Type') ?? 'image/jpeg',
-      'Cache-Control': 'private, max-age=1800',
-    },
-  });
+  const photo = await fetchTripPhoto(c.req.param('key'));
+  if (!photo) return c.json({ error: 'Photo unavailable' }, 404);
+  return c.body(photo.bytes, 200, { 'Content-Type': photo.type, 'Cache-Control': 'private, max-age=1800' });
 });
 
 const port = Number(process.env.PORT ?? 8787);
