@@ -39,6 +39,11 @@ function ChoiceGroup<T extends string>({ title, hint, labels, isActive, onToggle
   );
 }
 
+function cyclingAnswer(cycling: boolean | null) {
+  if (cycling === null) return null;
+  return cycling ? 'yes' : 'no';
+}
+
 export function Questionnaire({ initial, onDone }: { initial: SavedChoice | null; onDone: (choice: SavedChoice) => void }) {
   const [preferences, setPreferences] = useState<Preferences>(
     initial?.mode === 'custom' ? initial.preferences : EMPTY_PREFERENCES,
@@ -50,7 +55,7 @@ export function Questionnaire({ initial, onDone }: { initial: SavedChoice | null
         ? preferences.interests.filter((picked) => picked !== interest)
         : [...preferences.interests, interest],
     });
-  const cycling = preferences.cycling === null ? null : preferences.cycling ? 'yes' : 'no';
+  const cycling = cyclingAnswer(preferences.cycling);
 
   return (
     <main className="screen">

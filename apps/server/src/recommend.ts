@@ -460,14 +460,15 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const addedStation = park?.bikeOnly && !stationAllowed ? firstStationWithBikes(nearbyBikeStations) : undefined;
   const rideStation = stationAllowed ? modelStation : addedStation;
   const unwantedBike = !stationAllowed && saysBike;
-  const activity =
-    recommendation.verdict !== 'go'
-      ? modelActivity
-      : park && rideStation && (addedStation || garbledPark || !saysBike)
-        ? `Grab a bike at ${rideStation.name} and ride to ${park.name}`
-        : !stationAllowed && (switchedPark || garbledPark || unwantedBike)
-          ? walk
-          : modelActivity;
+  const isGo = recommendation.verdict === 'go';
+  let activity = modelActivity;
+  if (isGo && park && rideStation && (addedStation || garbledPark || !saysBike)) {
+    activity = `Grab a bike at ${rideStation.name} and ride to ${park.name}`;
+  } else if (isGo && !stationAllowed && (switchedPark || garbledPark || unwantedBike)) {
+    activity = walk;
+  }
+  // The model's ideas were written for the park it picked, so a switched park gets ideas from its own features.
+  const modelIdeas = switchedPark ? null : recommendation.thingsToDo;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
   const safetyNote = recommendation.safetyNote?.trim();
   const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
@@ -476,11 +477,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     ...recommendation,
     activity,
     reason: checkReason(recommendation.reason, conditions),
-    // The model's ideas were written for the park it picked, so a switched park gets ideas from its own features.
-    thingsToDo:
-      recommendation.verdict === 'go'
-        ? checkThingsToDo(switchedPark ? null : recommendation.thingsToDo, park, conditions)
-        : [],
+    thingsToDo: isGo ? checkThingsToDo(modelIdeas, park, conditions) : [],
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,

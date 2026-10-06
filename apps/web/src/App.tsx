@@ -224,6 +224,14 @@ function storyInput(result: RecommendResponse, place: NonNullable<RecommendRespo
   };
 }
 
+function describeRoute({ route, place, bikeStation }: RecommendResponse) {
+  if (!route || !place) return null;
+  const trip = `${(route.distanceM / 1000).toFixed(1)} km round trip to ${place.name} · about ${route.durationMin} min`;
+  if (route.mode !== 'bike') return `${trip} on foot`;
+  const station = bikeStation?.name ?? 'the station';
+  return `${trip} (${route.rideMin} by bike from ${station}, ${route.walkMin} on foot)`;
+}
+
 function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: () => void }) {
   const { recommendation, conditions, outfits, origin, place, route, bikeStation, source } = result;
   const [fit, setFit] = useState<Fit>('normal');
@@ -231,13 +239,7 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
-  const routeCaption =
-    route && place
-      ? `${(route.distanceM / 1000).toFixed(1)} km round trip to ${place.name} · about ${route.durationMin} min` +
-        (route.mode === 'bike'
-          ? ` (${route.rideMin} by bike from ${bikeStation?.name ?? 'the station'}, ${route.walkMin} on foot)`
-          : ' on foot')
-      : null;
+  const routeCaption = describeRoute(result);
 
   return (
     <main className={`screen result ${recommendation.verdict}`}>

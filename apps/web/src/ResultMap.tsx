@@ -1,4 +1,4 @@
-import { divIcon } from 'leaflet';
+import { divIcon, type FitBoundsOptions } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -22,6 +22,11 @@ interface ResultMapProps {
 
 const DEFAULT_ZOOM = 15;
 const ROUTE_COLOR = '#2f6b3a';
+
+/** Extra top padding leaves room for the destination's permanent tooltip. */
+const CARD_MAP_PADDING: FitBoundsOptions = { paddingTopLeft: [24, 48], paddingBottomRight: [24, 24] };
+/** Also keeps the route clear of the close button and the caption, with room for centered name tooltips at the sides. */
+const FULL_MAP_PADDING: FitBoundsOptions = { paddingTopLeft: [90, 80], paddingBottomRight: [90, 120] };
 
 /** Sits just above the station so a station next to "You are here" doesn't hide it. */
 const bikeIcon = divIcon({ className: 'bike-marker', html: '🚲', iconSize: [28, 28], iconAnchor: [14, 34] });
@@ -88,19 +93,8 @@ function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProp
     ...(route?.coordinates ?? []),
     ...[place, bikeStation].filter((point) => point !== null).map((point): LatLngTuple => [point.lat, point.lon]),
   ];
-  const viewport =
-    points.length > 1
-      ? {
-          bounds: points,
-          // Extra top padding leaves room for the destination's permanent tooltip.
-          // The full map also keeps the route clear of the close button and the caption, and leaves
-          // room for the centered name tooltips at the sides.
-          boundsOptions: {
-            paddingTopLeft: (expanded ? [90, 80] : [24, 48]) as [number, number],
-            paddingBottomRight: (expanded ? [90, 120] : [24, 24]) as [number, number],
-          },
-        }
-      : { center: originPoint, zoom: DEFAULT_ZOOM };
+  const boundsOptions = expanded ? FULL_MAP_PADDING : CARD_MAP_PADDING;
+  const viewport = points.length > 1 ? { bounds: points, boundsOptions } : { center: originPoint, zoom: DEFAULT_ZOOM };
 
   return (
     <MapContainer
