@@ -64,9 +64,24 @@ function isUnsafeOutside({ weather, airQuality }: Conditions) {
   );
 }
 
+function conditionsSummary({ weather, airQuality }: Conditions) {
+  return `${weather.temperatureC}°C, ${weather.description}, air quality ${airQuality.level}`;
+}
+
+const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b|공원|마당|광장/i;
+
+/** The reason should only cite conditions; a park named there may be garbled or differ from the map. */
+function withoutPlaceNames(reason: string, conditions: Conditions) {
+  const sentences = reason
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence && !PLACE_WORDS.test(sentence))
+    .filter((sentence) => !conditions.nearbyParks.some((park) => sentence.includes(park.name)));
+  return sentences.length > 0 ? sentences.join(' ') : `${conditionsSummary(conditions)}.`;
+}
+
 export function fallbackRecommendation(conditions: Conditions): Recommendation {
-  const { weather, airQuality, availableMinutes, nearbyBikeStations, nearbyParks } = conditions;
-  const summary = `${weather.temperatureC}°C, ${weather.description}, air quality ${airQuality.level}`;
+  const { weather, availableMinutes, nearbyBikeStations, nearbyParks } = conditions;
+  const summary = conditionsSummary(conditions);
   // Parks are sorted by distance and all fit the time budget, so the farthest uses the time best.
   const park = nearbyParks.at(-1);
 
@@ -116,6 +131,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   return {
     ...recommendation,
     activity,
+    reason: withoutPlaceNames(recommendation.reason, conditions),
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: park?.id ?? null,
