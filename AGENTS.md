@@ -85,10 +85,10 @@ Match the surrounding code: its naming, comment density, and idioms. On top of t
 
 - **No nested ternaries.** A ternary must not contain another ternary in its condition or either branch,
   including inside an object, array, call argument, or template literal in that branch. Use one of these:
-  - a small named function with early returns (`describeRoute` in `apps/web/src/App.tsx`);
+  - a small named function with early returns (`describeRoute` in `apps/web/src/utils/result.ts`);
   - `let` with `if / else if` when the branches set one value (`activity` in `sanitize`);
-  - a named constant for the inner choice, then a single ternary (`boundsOptions` in `ResultMap.tsx`);
-  - a lookup object keyed by the case (`STATION_LABEL` in `ResultMap.tsx`).
+  - a named constant for the inner choice, then a single ternary (`boundsOptions` in `components/ResultMap.tsx`);
+  - a lookup object keyed by the case (`STATION_LABEL` in `components/ResultMap.tsx`).
 
   A ternary inside a callback in a branch (`x ? list.map((item) => (item ? 'a' : 'b')) : []`) is fine,
   because the function starts fresh. `pnpm lint` (`scripts/check-nested-ternary.mjs`) checks this rule,
@@ -155,4 +155,13 @@ changed since the README was last checked and `README.md` wasn't touched.
   (Overpass), walking and cycling routes (OSRM), Seoul bikes.
 - `apps/server/src/agent.ts`: the Gemma prompt. `apps/server/src/recommend.ts`: gathering conditions,
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
-- `apps/web/src/`: `App.tsx` (screens), `Questionnaire.tsx`, `WeatherPanel.tsx`, `ResultMap.tsx`, `Avatar.tsx`.
+- `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
+  put other code in the matching folder:
+  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
+  - `hooks/`: React logic used by screens (`useRecommendation`, `useEscapeKey`).
+  - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers.
+  - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions).
+  - `constants/`, `types/`: shared labels and types.
+  - `preview/`: the walk preview film (`film.ts`, `flyoverMap.ts`), the illustrated fallback (`story.ts`),
+    music, and recording.
+  - `styles/`: `App.css` and `glass-tokens.css`.
