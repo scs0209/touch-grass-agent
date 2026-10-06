@@ -5,9 +5,11 @@
   "packageManager": "pnpm@10.29.3",
   "scripts": {
     "dev": "concurrently -n server,web -c green,cyan \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck && pnpm lint",
+    "lint": "node scripts/check-nested-ternary.mjs"
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.5",
+    "oxc-parser": "^0.153.0"
   }
 }

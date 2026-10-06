@@ -79,13 +79,30 @@ Answer in both English and Korean, because sessions may be shared with people wh
 - Subject: 50 characters or fewer. Body: `-` bullets.
 - Push after committing.
 
+### Code style
+
+Match the surrounding code: its naming, comment density, and idioms. On top of that:
+
+- **No nested ternaries.** A ternary must not contain another ternary in its condition or either branch,
+  including inside an object, array, call argument, or template literal in that branch. Use one of these:
+  - a small named function with early returns (`describeRoute` in `apps/web/src/App.tsx`);
+  - `let` with `if / else if` when the branches set one value (`activity` in `sanitize`);
+  - a named constant for the inner choice, then a single ternary (`boundsOptions` in `ResultMap.tsx`);
+  - a lookup object keyed by the case (`STATION_LABEL` in `ResultMap.tsx`).
+
+  A ternary inside a callback in a branch (`x ? list.map((item) => (item ? 'a' : 'b')) : []`) is fine,
+  because the function starts fresh. `pnpm lint` (`scripts/check-nested-ternary.mjs`) checks this rule,
+  and `pnpm typecheck` runs it too, so a nested ternary fails the check.
+- Comments state a constraint the code can't show (why, not what). Don't narrate the next line.
+
 ### Close gaps before reporting
 
 After you finish a change, look for gaps in your own work: limitations, cases that slip through,
 mismatches between the UI and the data, or results that don't follow what the user asked for.
 Fix them in the same session instead of only listing them in the final answer.
 
-1. Verify the change: `pnpm typecheck`, call the changed function directly with edge cases
+1. Verify the change: `pnpm typecheck` (it also runs `pnpm lint`; read its real exit code and don't pipe it
+   through `tail` or `head`, which hides a failure), call the changed function directly with edge cases
    (`npx tsx` from `apps/server`), and send real requests to the running server
    (`POST localhost:8787/api/recommend`).
 2. Read the results critically. Ask: does each output fit the inputs and the user's choices?
