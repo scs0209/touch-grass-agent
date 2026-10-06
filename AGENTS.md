@@ -27,7 +27,7 @@ It is a pnpm monorepo: `apps/server` (Hono + Mastra, port 8787) and `apps/web` (
 
    | Variable | What it adds | How to get it |
    |---|---|---|
-   | `SEOUL_OPEN_API_KEY` | Ddareungi (Seoul public bike) stations within 500 m and parks reachable by bike, only in Seoul and for 30+ minutes | Sign in to Seoul Open Data Plaza and request a general key at https://data.seoul.go.kr/together/mypage/actkeyMain.do. The API used is https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do (`bikeList`). |
+   | `SEOUL_OPEN_API_KEY` | Ddareungi (Seoul public bike) stations within 500 m and parks reachable by bike, only in Seoul, for 30+ minutes, and when the user answered yes to "Public bikes?" | Sign in to Seoul Open Data Plaza and request a general key at https://data.seoul.go.kr/together/mypage/actkeyMain.do. The API used is https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do (`bikeList`). |
    | `SENTRY_DSN` | Traces of every request, step, model call, and outgoing API request | Create a free account at https://sentry.io/signup/, create a Node.js project, and copy its DSN (https://docs.sentry.io/concepts/key-terms/dsn-explainer/). Traces include the user's location and questionnaire answers. |
 
    Check whether a key is set without showing it:
