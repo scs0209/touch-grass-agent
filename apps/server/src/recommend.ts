@@ -97,6 +97,7 @@ function conditionsSummary({ weather, airQuality }: Conditions) {
 
 const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b/i;
 const HANGUL = /\p{Script=Hangul}/u;
+const PARK_WORDS = /\b(parks?|gardens?|forests?|groves?|trails?|arboretum)\b|공원|숲/i;
 const CAPITALIZED_WORDS = ['celsius', 'fahrenheit', 'european', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const SUBJECTS = [
@@ -349,7 +350,13 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const stationAllowed = stationExists && conditions.preferences?.cycling !== false;
   // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
-  const park = matchingPark ?? modelPark;
+  // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed.
+  const unlistedPark =
+    recommendation.verdict === 'go' && !modelPark && !stationAllowed && PARK_WORDS.test(recommendation.activity)
+      ? preferredPark(conditions)
+      : undefined;
+  const switchedPark = matchingPark ?? unlistedPark;
+  const park = switchedPark ?? modelPark;
   const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
   // Small models romanize Korean park names into places that don't exist, or leave stray syllables
   // next to the real name ("Walk to 경 경찰기념공원"), so name the real one instead.
@@ -357,7 +364,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const garbledPark = park && (!namedPark || strayHangul);
   const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(recommendation.activity);
   const activity =
-    recommendation.verdict === 'go' && !stationAllowed && (matchingPark || garbledPark || unwantedBike)
+    recommendation.verdict === 'go' && !stationAllowed && (switchedPark || garbledPark || unwantedBike)
       ? walk
       : recommendation.activity;
   // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
@@ -371,7 +378,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     // The model's ideas were written for the park it picked, so a switched park gets ideas from its own features.
     thingsToDo:
       recommendation.verdict === 'go'
-        ? checkThingsToDo(matchingPark ? null : recommendation.thingsToDo, park, conditions)
+        ? checkThingsToDo(switchedPark ? null : recommendation.thingsToDo, park, conditions)
         : [],
     safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
