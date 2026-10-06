@@ -199,7 +199,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   }
 
   return (
-    <div className="preview-backdrop" role="dialog" aria-modal="true" aria-label={`Preview of your walk to ${input.placeName}`}>
+    <div className="preview-backdrop" role="dialog" aria-modal="true" aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}>
       <div className="preview-stage">
         <canvas ref={canvasRef} className="preview-canvas" width={WIDTH} height={HEIGHT} />
         <div ref={avatarRef} hidden>

@@ -704,15 +704,20 @@ function distanceM(a: LatLon, b: LatLon) {
   return 2 * 6371000 * Math.asin(Math.sqrt(h));
 }
 
+function nearestIndex(points: LatLon[], target: LatLon) {
+  let nearest = 0;
+  points.forEach((point, i) => {
+    if (distanceM(point, target) < distanceM(points[nearest], target)) nearest = i;
+  });
+  return nearest;
+}
+
 /** The way there: origin, the route up to the point nearest the park, then the park itself. */
 function pathThere({ origin, destination, route }: StoryInput): LatLon[] {
   if (!route) return [origin, destination];
   const coords = route.coordinates.map(([lat, lon]) => ({ lat, lon }));
   const [dLat, dLon] = route.destinationOnPath;
-  let nearest = 0;
-  coords.forEach((point, i) => {
-    if (distanceM(point, { lat: dLat, lon: dLon }) < distanceM(coords[nearest], { lat: dLat, lon: dLon })) nearest = i;
-  });
+  const nearest = nearestIndex(coords, { lat: dLat, lon: dLon });
   return [origin, ...coords.slice(0, nearest + 1), destination];
 }
 
@@ -816,8 +821,12 @@ function drawWalk(frame: Frame) {
   ctx.restore();
 
   drawLabel(ctx, 'You', start.x, start.y + 44);
-  if (byBike) drawEmoji(ctx, '🚲', walker.x, walker.y - 10, 72);
-  drawAvatar(frame, walker.x, walker.y - (byBike ? 30 : 10), 80, 'bob');
+  const station = input.bikeStation;
+  const stationIndex = station ? nearestIndex(pathThere(input), station) : -1;
+  if (station) drawEmoji(ctx, '🚲', points[stationIndex].x, points[stationIndex].y, 44);
+  const riding = station !== null && reached >= lengths[stationIndex];
+  if (riding) drawEmoji(ctx, '🚲', walker.x, walker.y - 10, 72);
+  drawAvatar(frame, walker.x, walker.y - (riding ? 30 : 10), 80, 'bob');
 
   const { route } = input;
   const distance = route?.distanceM ?? 2 * distanceM(input.origin, input.destination);

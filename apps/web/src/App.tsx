@@ -250,7 +250,7 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
           className="secondary preview-button"
           onClick={() => setPreview({ input: storyInput(result, place, outfit), outfit })}
         >
-          ▶ Preview your walk
+          ▶ Preview your {bikeStation ? 'ride' : 'walk'}
         </button>
       )}
       {preview && (
