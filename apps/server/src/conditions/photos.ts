@@ -50,7 +50,11 @@ const MAX_HEADING_OFF = 55;
 /** Closer than this, the entrance and the park's center give no direction to look in. */
 const MIN_APPROACH_M = 10;
 const ARRIVAL_SEARCH_M = 50;
-const PLACE_SEARCH_M = 150;
+/**
+ * Mapillary returns the first 50 photos in the box, not the nearest, so a wide box mostly yields its
+ * corners: the next streets over rather than the park.
+ */
+const PLACE_SEARCH_M = 80;
 const PLACE_SHOTS = 3;
 const WIKIMEDIA_RADIUS_M = 400;
 /** One of Wikimedia's standard thumbnail widths, which are served from cache instead of rendered on request. */
@@ -178,6 +182,7 @@ function mapillaryPlaceShots(images: MapillaryImage[], destination: LatLon, used
   return images
     .filter((image) => !used.has(image.id))
     .map((image) => ({ image, distance: imagePoint(image) ? distanceInMeters(imagePoint(image)!, destination) : Infinity }))
+    .filter(({ distance }) => distance <= PLACE_SEARCH_M)
     .sort((a, b) => a.distance - b.distance)
     .filter(({ image }) => {
       if (image.sequence && sequences.has(image.sequence)) return false;
