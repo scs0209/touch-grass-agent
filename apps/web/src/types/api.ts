@@ -1,0 +1,68 @@
+import type { NamedPoint } from './geo';
+import type { Fit, Outfit } from './outfit';
+import type { WeatherConditions } from './weather';
+
+export type ThingScene =
+  | 'playground'
+  | 'sports field'
+  | 'running track'
+  | 'outdoor gym'
+  | 'benches'
+  | 'drinking fountain'
+  | 'viewpoint'
+  | 'water'
+  | 'sunset'
+  | 'stretch'
+  | 'season'
+  | 'photo'
+  | 'rest'
+  | 'walk';
+
+/** Must match Route in apps/server/src/conditions/route.ts. */
+export interface Route {
+  mode: 'foot' | 'bike';
+  coordinates: [number, number][];
+  destinationOnPath: [number, number];
+  distanceM: number;
+  /** The whole trip, including renting and returning the bike on a bike trip. */
+  durationMin: number;
+  rideMin: number;
+  walkMin: number;
+  /** First and last index in coordinates of the part on the bike; null on foot. */
+  rideRange: [number, number] | null;
+}
+
+export interface RecommendResponse {
+  recommendation: {
+    verdict: 'go' | 'stay';
+    activity: string;
+    durationMin: number;
+    reason: string;
+    thingsToDo: string[];
+    safetyNote?: string | null;
+  };
+  /** One per item in recommendation.thingsToDo. */
+  thingScenes: ThingScene[];
+  outfits: { fit: Fit; outfit: Outfit }[];
+  origin: { lat: number; lon: number };
+  place: (NamedPoint & { features: string[] | null }) | null;
+  route: Route | null;
+  bikeStation: (NamedPoint & { bikesAvailable: number }) | null;
+  source: 'model' | 'fallback';
+  conditions: WeatherConditions;
+}
+
+/** Must match TripPhoto in apps/server/src/conditions/photos.ts. */
+export interface TripPhoto {
+  key: string;
+  kind: 'arrival' | 'place';
+  source: 'mapillary' | 'wikimedia';
+  creator: string;
+  license: string;
+  capturedAt: string | null;
+}
+
+export interface TripPhotos {
+  arrival: TripPhoto | null;
+  place: TripPhoto[];
+}

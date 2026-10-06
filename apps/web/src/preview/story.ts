@@ -1,54 +1,13 @@
-import type { OutfitItem } from './OutfitCards';
-import { skyIcon, type Sky, type WeatherConditions } from './WeatherPanel';
+import type { ThingScene } from '../types/api';
+import type { LatLon } from '../types/geo';
+import type { StoryInput } from '../types/preview';
+import type { Sky } from '../types/weather';
+import { distanceM, nearestIndex } from '../utils/geo';
+import { skyIcon } from '../utils/weather';
+import { clamp01, FONT, wrapLines } from './canvas';
 
 export const WIDTH = 720;
 export const HEIGHT = 1280;
-
-export type ThingScene =
-  | 'playground'
-  | 'sports field'
-  | 'running track'
-  | 'outdoor gym'
-  | 'benches'
-  | 'drinking fountain'
-  | 'viewpoint'
-  | 'water'
-  | 'sunset'
-  | 'stretch'
-  | 'season'
-  | 'photo'
-  | 'rest'
-  | 'walk';
-
-type LatLon = { lat: number; lon: number };
-
-/** Must match Route in apps/server/src/conditions/route.ts. */
-export interface Route {
-  mode: 'foot' | 'bike';
-  coordinates: [number, number][];
-  destinationOnPath: [number, number];
-  distanceM: number;
-  /** The whole trip, including renting and returning the bike on a bike trip. */
-  durationMin: number;
-  rideMin: number;
-  walkMin: number;
-  /** First and last index in coordinates of the part on the bike; null on foot. */
-  rideRange: [number, number] | null;
-}
-
-export interface StoryInput {
-  durationMin: number;
-  placeName: string;
-  features: string[];
-  origin: LatLon;
-  destination: LatLon;
-  route: Route | null;
-  /** Set when the suggestion is a bike ride from this station. */
-  bikeStation: (LatLon & { name: string }) | null;
-  things: { text: string; scene: ThingScene }[];
-  outfitItems: OutfitItem[];
-  conditions: WeatherConditions;
-}
 
 export interface Assets {
   avatar: HTMLImageElement;
@@ -194,10 +153,8 @@ const SCENE_DRAW: Record<SceneKind, (frame: Frame) => void> = {
 
 // ---------- helpers ----------
 
-const FONT = 'system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const easeOutBack = (x: number) => 1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2;
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
 const rand = (i: number) => {
@@ -210,22 +167,6 @@ function mix(a: string, b: string, amount: number) {
   const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const [from, to] = [channels(a), channels(b)];
   return `rgb(${from.map((value, i) => Math.round(value + (to[i] - value) * amount)).join(',')})`;
-}
-
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(/\s+/)) {
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > maxWidth) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
 }
 
 interface TextOptions {
@@ -696,22 +637,6 @@ function drawLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: nu
   ctx.fillStyle = '#1f2a1f';
   ctx.fillText(text, x, y + 1);
   ctx.restore();
-}
-
-function distanceM(a: LatLon, b: LatLon) {
-  const toRad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * toRad;
-  const dLon = (b.lon - a.lon) * toRad;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toRad) * Math.cos(b.lat * toRad) * Math.sin(dLon / 2) ** 2;
-  return 2 * 6371000 * Math.asin(Math.sqrt(h));
-}
-
-function nearestIndex(points: LatLon[], target: LatLon) {
-  let nearest = 0;
-  points.forEach((point, i) => {
-    if (distanceM(point, target) < distanceM(points[nearest], target)) nearest = i;
-  });
-  return nearest;
 }
 
 /** The way there: origin, the route up to the point nearest the park, then the park itself. */

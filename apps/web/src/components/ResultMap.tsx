@@ -3,21 +3,17 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleMarker, MapContainer, Marker, Pane, Polyline, TileLayer, Tooltip, type TooltipProps } from 'react-leaflet';
-import type { Route } from './previewDraw';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import type { Route } from '../types/api';
+import type { LatLon, NamedPoint } from '../types/geo';
 
 type LatLngTuple = [number, number];
 
-interface Point {
-  name: string;
-  lat: number;
-  lon: number;
-}
-
 interface ResultMapProps {
-  origin: { lat: number; lon: number };
-  place: Point | null;
+  origin: LatLon;
+  place: NamedPoint | null;
   route: Pick<Route, 'coordinates' | 'destinationOnPath' | 'rideRange'> | null;
-  bikeStation: Point | null;
+  bikeStation: NamedPoint | null;
 }
 
 const DEFAULT_ZOOM = 15;
@@ -37,7 +33,7 @@ const STATION_LABEL: Record<'left' | 'right', Pick<TooltipProps, 'direction' | '
   right: { direction: 'right', offset: [12, -20] },
 };
 
-function stationLabel(station: Point, place: Point | null) {
+function stationLabel(station: NamedPoint, place: NamedPoint | null) {
   if (place && station.lon > place.lon) return STATION_LABEL.left;
   return STATION_LABEL.right;
 }
@@ -58,18 +54,14 @@ export function ResultMap({ caption, ...props }: ResultMapProps & { caption: str
   const [expanded, setExpanded] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  useEscapeKey(() => setExpanded(false), expanded);
   useEffect(() => {
     if (!expanded) return;
     closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpanded(false);
-    };
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = overflow;
-      window.removeEventListener('keydown', onKey);
     };
   }, [expanded]);
 

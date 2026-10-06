@@ -1,4 +1,4 @@
-import type { Sky } from './WeatherPanel';
+import type { Sky } from '../types/weather';
 
 export type Mood = 'bright' | 'mellow' | 'lofi' | 'night';
 

@@ -1,14 +1,6 @@
 import { useState } from 'react';
-import {
-  COMPANY_LABELS,
-  CYCLING_LABELS,
-  EMPTY_PREFERENCES,
-  INTEREST_LABELS,
-  PACE_LABELS,
-  type Interest,
-  type Preferences,
-  type SavedChoice,
-} from './preferences';
+import { COMPANY_LABELS, CYCLING_LABELS, EMPTY_PREFERENCES, INTEREST_LABELS, PACE_LABELS } from '../constants/preferences';
+import type { Interest, Preferences, SavedChoice } from '../types/preferences';
 
 interface ChoiceGroupProps<T extends string> {
   title: string;

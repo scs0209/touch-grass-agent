@@ -1,25 +1,14 @@
-import { buildStory, pathThere, type Story, type StoryInput } from './previewDraw';
-import type { FlyoverMap, MapCamera, MapLook } from './previewMap';
+import { fetchTripPhotos, tripPhotoUrl } from '../services/api';
+import type { TripPhoto, TripPhotos } from '../types/api';
+import type { LatLon } from '../types/geo';
+import type { StoryInput } from '../types/preview';
+import { bearing, distanceM } from '../utils/geo';
+import { clamp01, FONT, wrapLines } from './canvas';
+import type { FlyoverMap, MapCamera, MapLook } from './flyoverMap';
+import { buildStory, pathThere, type Story } from './story';
 
 export const FILM_WIDTH = 1080;
 export const FILM_HEIGHT = 1920;
-
-type LatLon = { lat: number; lon: number };
-
-/** Must match TripPhoto in apps/server/src/conditions/photos.ts. */
-export interface TripPhoto {
-  key: string;
-  kind: 'arrival' | 'place';
-  source: 'mapillary' | 'wikimedia';
-  creator: string;
-  license: string;
-  capturedAt: string | null;
-}
-
-interface TripPhotos {
-  arrival: TripPhoto | null;
-  place: TripPhoto[];
-}
 
 interface LoadedPhoto {
   photo: TripPhoto;
@@ -100,7 +89,6 @@ const SEARCH_WAIT_MS = 15000;
 
 const MAP_CREDIT = '© OpenStreetMap contributors · OpenFreeMap';
 const GREEN = '#34c759';
-const FONT = 'system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
 
 /** The map renders at half the film size in CSS pixels, doubled for sharpness. */
 const VIEW_WIDTH = FILM_WIDTH / 2;
@@ -110,26 +98,12 @@ const TRACK_PITCH = 55;
 /** Keeps the walker a little below the middle, clear of the captions, with the way ahead in view. */
 const TRACK_LIFT = 180;
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const easeInOutSine = (x: number) => -(Math.cos(Math.PI * x) - 1) / 2;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ---------- the way there ----------
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
-
-function distanceM(a: LatLon, b: LatLon) {
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
-  return 2 * 6371000 * Math.asin(Math.sqrt(h));
-}
-
-/** Compass bearing from a to b; fine over the few kilometers of a walk. */
-function bearing(a: LatLon, b: LatLon) {
-  const dx = (b.lon - a.lon) * Math.cos(toRad((a.lat + b.lat) / 2));
-  return (Math.atan2(dx, b.lat - a.lat) * 180) / Math.PI;
-}
 
 function trackOf(points: LatLon[]): Track {
   const cumulative = [0];
@@ -259,17 +233,13 @@ function lookFor(input: StoryInput): MapLook {
 
 // ---------- loading ----------
 
-async function fetchTripPhotos(input: StoryInput, there: LatLon[], signal: AbortSignal): Promise<TripPhotos | null> {
+function searchParkPhotos(input: StoryInput, there: LatLon[], signal: AbortSignal): Promise<TripPhotos | null> {
   // pathThere ends at the park itself; the point before is where the route meets the park.
   const entrance = input.route ? there[there.length - 2] : input.destination;
-  const response = await fetch('/api/trip-photos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ entrance, destination: input.destination, placeName: input.placeName }),
-    signal: AbortSignal.any([signal, AbortSignal.timeout(SEARCH_WAIT_MS)]),
-  });
-  if (!response.ok) return null;
-  return ((await response.json()) as { photos: TripPhotos | null }).photos;
+  return fetchTripPhotos(
+    { entrance, destination: input.destination, placeName: input.placeName },
+    AbortSignal.any([signal, AbortSignal.timeout(SEARCH_WAIT_MS)]),
+  );
 }
 
 /** Color grade once at load, so each frame only copies pixels. */
@@ -287,7 +257,7 @@ function grade(image: HTMLImageElement, input: StoryInput) {
 async function loadPhoto(photo: TripPhoto, input: StoryInput, signal: AbortSignal): Promise<LoadedPhoto> {
   signal.throwIfAborted();
   const image = new Image();
-  image.src = `/api/trip-photos/${photo.key}`;
+  image.src = tripPhotoUrl(photo.key);
   const tooSlow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Photo too slow')), PHOTO_WAIT_MS));
   const stopped = new Promise<never>((_, reject) => signal.addEventListener('abort', () => reject(new Error('Stopped')), { once: true }));
   await Promise.race([image.decode(), tooSlow, stopped]);
@@ -296,7 +266,7 @@ async function loadPhoto(photo: TripPhoto, input: StoryInput, signal: AbortSigna
 
 /** Real photos of the park, the one at its edge first; empty when there are none. */
 async function loadParkPhotos(input: StoryInput, there: LatLon[], signal: AbortSignal): Promise<LoadedPhoto[]> {
-  const photos = await fetchTripPhotos(input, there, signal).catch(() => null);
+  const photos = await searchParkPhotos(input, there, signal).catch(() => null);
   if (!photos || signal.aborted) return [];
   const all = [...(photos.arrival ? [photos.arrival] : []), ...photos.place].slice(0, MAX_PHOTOS);
   const loaded = await Promise.all(all.map((photo) => loadPhoto(photo, input, signal).catch(() => null)));
@@ -313,7 +283,7 @@ export async function loadFilm(input: StoryInput, bpm: number, signal: AbortSign
   // Without the map there is no film, so its failure stops the photo search too.
   const noMap = new AbortController();
   const [map, photos] = await Promise.all([
-    import('./previewMap')
+    import('./flyoverMap')
       .then(({ openFlyoverMap }) =>
         openFlyoverMap({ path: there, width: FILM_WIDTH, height: FILM_HEIGHT, look: lookFor(input), stops: warmUpStops(camera), signal }),
       )
@@ -632,22 +602,6 @@ function drawLight(ctx: CanvasRenderingContext2D, story: Story) {
   vignette.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT);
-}
-
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(/\s+/)) {
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > maxWidth) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
 }
 
 interface Line {

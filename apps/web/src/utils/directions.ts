@@ -1,4 +1,4 @@
-type LatLon = { lat: number; lon: number };
+import type { LatLon } from '../types/geo';
 
 /** Google Maps directions; a bike trip goes through the station where the bike is rented. */
 export function directionsUrl(destination: LatLon, bikeStation: LatLon | null = null) {

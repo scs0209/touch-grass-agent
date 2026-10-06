@@ -1,4 +1,4 @@
-import type { Bottom, Extra, Outer, Outfit, Top } from './OutfitCards';
+import type { Bottom, Extra, Outer, Outfit, Top } from '../types/outfit';
 
 type OuterLayerKind = Exclude<Outer, 'none'>;
 
