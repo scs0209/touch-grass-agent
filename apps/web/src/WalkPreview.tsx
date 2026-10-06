@@ -3,6 +3,7 @@ import { Avatar } from './Avatar';
 import { directionsUrl } from './directions';
 import type { Outfit } from './OutfitCards';
 import { buildStory, drawFrame, HEIGHT, imagePaths, WIDTH, type Assets, type StoryInput } from './previewDraw';
+import { drawFilmFrame, FILM_HEIGHT, FILM_WIDTH, loadFilm, type Film } from './previewFilm';
 import { BPM, moodFor, playMusic, type Music } from './previewMusic';
 
 type Phase = 'loading' | 'blocked' | 'playing' | 'done' | 'error';
@@ -27,6 +28,8 @@ interface Video {
 const FRAME_RATE = 30;
 /** Keeps a 30-second clip under about 10 MB so messaging apps accept it. */
 const VIDEO_BITS_PER_SECOND = 2_500_000;
+/** Photos need more bits; still keeps a 35-second film under WhatsApp's 16 MB media limit. */
+const FILM_BITS_PER_SECOND = 3_500_000;
 /** Safari records MP4 only; Chrome and Firefox record WebM. */
 const VIDEO_TYPES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
 /** How long to wait for the browser to allow sound before asking for a tap. */
@@ -52,14 +55,19 @@ async function loadAssets(input: StoryInput, avatarMarkup: string): Promise<Asse
 }
 
 /** Records the canvas with the music; only a recording that played to the end is kept. */
-function startRecording(canvas: HTMLCanvasElement, audio: MediaStream, onVideo: (file: File) => void): Recording | null {
+function startRecording(
+  canvas: HTMLCanvasElement,
+  audio: MediaStream,
+  bitsPerSecond: number,
+  onVideo: (file: File) => void,
+): Recording | null {
   if (typeof MediaRecorder === 'undefined') return null;
   const type = VIDEO_TYPES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
   if (!type) return null;
 
   const stream = canvas.captureStream(FRAME_RATE);
   audio.getAudioTracks().forEach((track) => stream.addTrack(track));
-  const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: VIDEO_BITS_PER_SECOND });
+  const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: bitsPerSecond });
   const chunks: Blob[] = [];
   let keep = false;
   recorder.ondataavailable = (event) => chunks.push(event.data);
@@ -88,10 +96,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const assetsRef = useRef<Assets | null>(null);
+  const filmRef = useRef<Film | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const runRef = useRef<Run | null>(null);
   const mutedRef = useRef(false);
   const [phase, setPhase] = useState<Phase>('loading');
+  const [hasFilm, setHasFilm] = useState(false);
   const [muted, setMuted] = useState(false);
   const [video, setVideo] = useState<Video | null>(null);
 
@@ -112,16 +122,23 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   async function play() {
     const canvas = canvasRef.current;
     const assets = assetsRef.current;
+    const film = filmRef.current;
     const context2d = canvas?.getContext('2d');
-    if (!canvas || !assets || !context2d) return;
+    if (!canvas || !context2d || (!film && !assets)) return;
     stopRun();
+
+    // React sets the same size on the next render; the first frames can't wait for it.
+    canvas.width = film ? FILM_WIDTH : WIDTH;
+    canvas.height = film ? FILM_HEIGHT : HEIGHT;
+    const total = film ? film.total : story.total;
+    const draw = (t: number) => (film ? drawFilmFrame(context2d, film, t, still) : drawFrame(context2d, story, t, assets!, still));
 
     const audio = (audioRef.current ??= new AudioContext());
     if (audio.state !== 'running') {
       await Promise.race([audio.resume(), new Promise((resolve) => setTimeout(resolve, AUTOPLAY_WAIT_MS))]);
     }
     if (audio.state !== 'running') {
-      drawFrame(context2d, story, 0, assets, still);
+      draw(0);
       setPhase('blocked');
       return;
     }
@@ -131,17 +148,19 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
     speakers.connect(audio.destination);
     const tape = audio.createMediaStreamDestination();
     const startAt = audio.currentTime + 0.15;
-    const music = playMusic(audio, mood, startAt, story.total, [speakers, tape]);
+    const music = playMusic(audio, mood, startAt, total, [speakers, tape]);
 
-    const recording = startRecording(canvas, tape.stream, (file) => setVideo({ url: URL.createObjectURL(file), file }));
+    const recording = startRecording(canvas, tape.stream, film ? FILM_BITS_PER_SECOND : VIDEO_BITS_PER_SECOND, (file) =>
+      setVideo({ url: URL.createObjectURL(file), file }),
+    );
     const run: Run = { frame: 0, music, recording, speakers };
     runRef.current = run;
     setPhase('playing');
 
     const tick = () => {
       const t = Math.max(audio.currentTime - startAt, 0);
-      drawFrame(context2d, story, Math.min(t, story.total), assets, still);
-      if (t < story.total) {
+      draw(Math.min(t, total));
+      if (t < total) {
         run.frame = requestAnimationFrame(tick);
         return;
       }
@@ -154,11 +173,18 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    loadAssets(input, avatarRef.current?.innerHTML ?? '')
-      .then((assets) => {
+    // Real photos when there are enough of them; otherwise the illustrated story.
+    loadFilm(input, BPM[mood])
+      .catch(() => null)
+      .then(async (film) => {
         if (cancelled) return;
-        assetsRef.current = assets;
-        void play();
+        if (film) {
+          filmRef.current = film;
+          setHasFilm(true);
+        } else {
+          assetsRef.current = await loadAssets(input, avatarRef.current?.innerHTML ?? '');
+        }
+        if (!cancelled) void play();
       })
       .catch(() => {
         if (!cancelled) setPhase('error');
@@ -201,7 +227,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   return (
     <div className="preview-backdrop" role="dialog" aria-modal="true" aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}>
       <div className="preview-stage">
-        <canvas ref={canvasRef} className="preview-canvas" width={WIDTH} height={HEIGHT} />
+        <canvas
+          ref={canvasRef}
+          className="preview-canvas"
+          width={hasFilm ? FILM_WIDTH : WIDTH}
+          height={hasFilm ? FILM_HEIGHT : HEIGHT}
+        />
         <div ref={avatarRef} hidden>
           <Avatar outfit={outfit} />
         </div>

@@ -26,6 +26,15 @@ export const recommendRequestSchema = z.object({
 
 export type RecommendRequest = z.infer<typeof recommendRequestSchema>;
 
+const latLonSchema = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) });
+
+export const tripPhotosRequestSchema = z.object({
+  /** The way there, from home to where the route meets the park. */
+  path: z.array(latLonSchema).min(2).max(5000),
+  destination: latLonSchema,
+  placeName: z.string().min(1).max(200),
+});
+
 export const recommendationSchema = z.object({
   verdict: z.enum(['go', 'stay']),
   activity: z.string().min(1),

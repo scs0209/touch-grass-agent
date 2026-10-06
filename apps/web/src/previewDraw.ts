@@ -715,7 +715,7 @@ function nearestIndex(points: LatLon[], target: LatLon) {
 }
 
 /** The way there: origin, the route up to the point nearest the park, then the park itself. */
-function pathThere({ origin, destination, route }: StoryInput): LatLon[] {
+export function pathThere({ origin, destination, route }: StoryInput): LatLon[] {
   if (!route) return [origin, destination];
   const coords = route.coordinates.map(([lat, lon]) => ({ lat, lon }));
   const [dLat, dLon] = route.destinationOnPath;

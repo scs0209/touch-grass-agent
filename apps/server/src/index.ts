@@ -1,8 +1,9 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { OLLAMA_MODEL } from './agent.js';
+import { fetchTripPhoto, getTripPhotos } from './conditions/photos.js';
 import { recommend } from './mastra.js';
-import { recommendRequestSchema } from './schema.js';
+import { recommendRequestSchema, tripPhotosRequestSchema } from './schema.js';
 
 const app = new Hono();
 
@@ -18,6 +19,31 @@ app.post('/api/recommend', async (c) => {
     console.error(error);
     return c.json({ error: 'Could not check the conditions right now. Try again in a minute.' }, 502);
   }
+});
+
+app.post('/api/trip-photos', async (c) => {
+  const parsed = tripPhotosRequestSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'Invalid trip' }, 400);
+
+  const { path, destination, placeName } = parsed.data;
+  try {
+    return c.json({ photos: await getTripPhotos(path, destination, placeName) });
+  } catch (error) {
+    console.error(error);
+    return c.json({ photos: null });
+  }
+});
+
+/** Serves photos from this origin so the preview canvas can record them. */
+app.get('/api/trip-photos/:key', async (c) => {
+  const response = await fetchTripPhoto(c.req.param('key'));
+  if (!response) return c.json({ error: 'Photo unavailable' }, 404);
+  return new Response(response.body, {
+    headers: {
+      'Content-Type': response.headers.get('Content-Type') ?? 'image/jpeg',
+      'Cache-Control': 'private, max-age=1800',
+    },
+  });
 });
 
 const port = Number(process.env.PORT ?? 8787);
