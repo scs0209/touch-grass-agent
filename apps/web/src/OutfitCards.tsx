@@ -60,23 +60,32 @@ const ICON_FILTERS: Partial<Record<keyof typeof EMOJI_FILES, string>> = {
   padded: 'hue-rotate(165deg) saturate(0.9) brightness(0.5)',
 };
 
-export function OutfitCards({ outfit }: { outfit: Outfit }) {
-  const items = [outfit.outer === 'none' ? null : outfit.outer, outfit.top, outfit.bottom, ...outfit.extras].filter(
+export interface OutfitItem {
+  key: keyof typeof EMOJI_FILES;
+  label: string;
+  icon: string;
+  filter?: string;
+}
+
+export function outfitItems(outfit: Outfit): OutfitItem[] {
+  const keys = [outfit.outer === 'none' ? null : outfit.outer, outfit.top, outfit.bottom, ...outfit.extras].filter(
     (item) => item !== null,
   );
+  return keys.map((key) => ({
+    key,
+    label: OUTFIT_LABELS[key],
+    icon: `/fluent-emoji/${EMOJI_FILES[key]}_3d.png`,
+    filter: ICON_FILTERS[key],
+  }));
+}
 
+export function OutfitCards({ outfit }: { outfit: Outfit }) {
   return (
     <ul className="outfit-cards">
-      {items.map((item) => (
-        <li key={item} className="outfit-card">
-          <img
-            src={`/fluent-emoji/${EMOJI_FILES[item]}_3d.png`}
-            alt=""
-            width={44}
-            height={44}
-            style={{ filter: ICON_FILTERS[item] }}
-          />
-          <span>{OUTFIT_LABELS[item]}</span>
+      {outfitItems(outfit).map((item) => (
+        <li key={item.key} className="outfit-card">
+          <img src={item.icon} alt="" width={44} height={44} style={{ filter: item.filter }} />
+          <span>{item.label}</span>
         </li>
       ))}
     </ul>

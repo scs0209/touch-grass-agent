@@ -17,6 +17,10 @@ export interface WeatherConditions {
   minutesUntilSunset: number;
 }
 
+export function skyIcon(sky: Sky, isDay: boolean) {
+  return !isDay && (sky === 'clear' || sky === 'partly-cloudy') ? 'crescent_moon' : SKY_ICONS[sky];
+}
+
 const SKY_ICONS: Record<Sky, string> = {
   clear: 'sun',
   'partly-cloudy': 'sun_behind_cloud',
@@ -68,7 +72,7 @@ function Scale({ kind, value, max }: { kind: 'air' | 'uv' | 'wind'; value: numbe
 
 export function WeatherPanel({ conditions }: { conditions: WeatherConditions }) {
   const { sky, isDay, rainChanceByHour, minutesUntilSunset } = conditions;
-  const icon = !isDay && (sky === 'clear' || sky === 'partly-cloudy') ? 'crescent_moon' : SKY_ICONS[sky];
+  const icon = skyIcon(sky, isDay);
   const sunsetTime = conditions.sunset.slice(11, 16);
 
   return (

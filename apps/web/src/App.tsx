@@ -1,10 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Avatar } from './Avatar';
-import { OutfitCards, type Outfit } from './OutfitCards';
+import { walkingDirectionsUrl } from './directions';
+import { OutfitCards, outfitItems, type Outfit } from './OutfitCards';
 import { loadChoice, saveChoice, summarize, type Preferences, type SavedChoice } from './preferences';
+import type { StoryInput, ThingScene } from './previewDraw';
 import { Questionnaire } from './Questionnaire';
 import { ResultMap } from './ResultMap';
 import { WeatherPanel, type WeatherConditions } from './WeatherPanel';
+
+const WalkPreview = lazy(() => import('./WalkPreview').then((module) => ({ default: module.WalkPreview })));
 
 interface NamedPoint {
   name: string;
@@ -29,9 +33,11 @@ interface RecommendResponse {
     thingsToDo: string[];
     safetyNote?: string | null;
   };
+  /** One per item in recommendation.thingsToDo. */
+  thingScenes: ThingScene[];
   outfits: { fit: Fit; outfit: Outfit }[];
   origin: { lat: number; lon: number };
-  place: NamedPoint | null;
+  place: (NamedPoint & { features: string[] | null }) | null;
   route: {
     coordinates: [number, number][];
     destinationOnPath: [number, number];
@@ -200,9 +206,26 @@ export function App() {
   );
 }
 
+function storyInput(result: RecommendResponse, place: NonNullable<RecommendResponse['place']>, outfit: Outfit): StoryInput {
+  const { recommendation, thingScenes, origin, route, bikeStation, conditions } = result;
+  return {
+    durationMin: recommendation.durationMin,
+    placeName: place.name,
+    features: place.features ?? [],
+    origin,
+    destination: place,
+    route,
+    bikeStationName: bikeStation?.name ?? null,
+    things: recommendation.thingsToDo.map((text, i) => ({ text, scene: thingScenes[i] ?? 'walk' })),
+    outfitItems: outfitItems(outfit),
+    conditions,
+  };
+}
+
 function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: () => void }) {
   const { recommendation, conditions, outfits, origin, place, route, bikeStation, source } = result;
   const [fit, setFit] = useState<Fit>('normal');
+  const [preview, setPreview] = useState<{ input: StoryInput; outfit: Outfit } | null>(null);
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
@@ -226,6 +249,20 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
         )}
         {recommendation.safetyNote && <p className="note">{recommendation.safetyNote}</p>}
       </section>
+
+      {isGo && place && (
+        <button
+          className="secondary preview-button"
+          onClick={() => setPreview({ input: storyInput(result, place, outfit), outfit })}
+        >
+          ▶ Preview your walk
+        </button>
+      )}
+      {preview && (
+        <Suspense fallback={null}>
+          <WalkPreview input={preview.input} outfit={preview.outfit} onClose={() => setPreview(null)} />
+        </Suspense>
+      )}
 
       <WeatherPanel conditions={conditions} />
 
@@ -267,7 +304,7 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
       {isGo && destination && (
         <a
           className="primary"
-          href={`https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lon}&travelmode=walking`}
+          href={walkingDirectionsUrl(destination)}
           target="_blank"
           rel="noreferrer"
         >

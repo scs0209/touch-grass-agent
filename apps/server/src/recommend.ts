@@ -243,6 +243,26 @@ function checkThingsToDo(items: string[] | null | undefined, park: Park | undefi
   return checked.length > 0 ? checked : fallbackThingsToDo(features, conditions);
 }
 
+/** What the walk preview shows for each thing to do. */
+export type ThingScene = Exclude<Feature, 'toilets'> | 'sunset' | 'stretch' | 'season' | 'photo' | 'rest' | 'walk';
+
+const isSceneFeature = (feature: Feature): feature is Exclude<Feature, 'toilets'> => !NOT_ACTIVITIES.includes(feature);
+
+const SCENE_WORDS: [ThingScene, RegExp][] = [
+  ['sunset', /\b(sunset|sundown|golden hour)\b/i],
+  ...(Object.keys(FEATURE_WORDS) as Feature[])
+    .filter(isSceneFeature)
+    .map((feature): [ThingScene, RegExp] => [feature, FEATURE_WORDS[feature]]),
+  ['stretch', /\b(stretch\w*|yoga|breath\w*|warm[- ]?up)\b/i],
+  ['photo', /\b(photos?|pictures?|snap)\b/i],
+  ['season', /\b(seasons?|leaves|flowers?|blossoms?|trees?|birds?|autumn|fall colou?rs?|spring|summer|winter)\b/i],
+  ['rest', /\b(sit|rest|relax|read|pause|unwind)\b/i],
+];
+
+export function sceneFor(thing: string): ThingScene {
+  return SCENE_WORDS.find(([, words]) => words.test(thing))?.[0] ?? 'walk';
+}
+
 const EXERCISE_FEATURES: Feature[] = ['sports field', 'running track', 'outdoor gym'];
 /** Ideas at these features mean working out, which doesn't fit an easy, relaxed pace. */
 const EFFORT_FEATURES: Feature[] = ['running track', 'outdoor gym'];
@@ -398,9 +418,10 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
 
   return {
     recommendation: { ...recommendation, durationMin },
+    thingScenes: (recommendation.thingsToDo ?? []).map(sceneFor),
     outfits: outfitOptions(outfit ?? conditions.baselineOutfit, conditions.weather, conditions.airQuality),
     origin,
-    place: place ? { name: place.name, lat: place.lat, lon: place.lon } : null,
+    place: place ? { name: place.name, lat: place.lat, lon: place.lon, features: place.features } : null,
     route,
     bikeStation: bikeStation
       ? { name: bikeStation.name, lat: bikeStation.lat, lon: bikeStation.lon, bikesAvailable: bikeStation.bikesAvailable }
