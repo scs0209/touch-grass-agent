@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from 'react';
+import { type SubmitEvent, useState } from 'react';
 import { Questionnaire } from './components/Questionnaire';
 import { ResultCard } from './components/ResultCard';
 import { useRecommendation } from './hooks/useRecommendation';
@@ -19,6 +19,9 @@ export function App() {
   const [editingChoice, setEditingChoice] = useState(false);
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
   const { status, recommendHere, recommendInCity, reset } = useRecommendation(availableMinutes, preferences);
+
+
+  
 
   function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -86,7 +89,11 @@ export function App() {
       </button>
 
       <form className="city-form" onSubmit={handleCitySubmit}>
-        <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="or type a city, e.g. Seoul" />
+        <input
+          value={city}
+          onChange={(event) => setCity(event.target.value)}
+          placeholder="or type a city, e.g. Seoul"
+        />
         <button type="submit">Go</button>
       </form>
 

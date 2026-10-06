@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { COMPANY_LABELS, CYCLING_LABELS, EMPTY_PREFERENCES, INTEREST_LABELS, PACE_LABELS } from '../constants/preferences';
+import {
+  COMPANY_LABELS,
+  CYCLING_LABELS,
+  EMPTY_PREFERENCES,
+  INTEREST_LABELS,
+  PACE_LABELS,
+} from '../constants/preferences';
 import type { Interest, Preferences, SavedChoice } from '../types/preferences';
 
 interface ChoiceGroupProps<T extends string> {
@@ -36,7 +42,13 @@ function cyclingAnswer(cycling: boolean | null) {
   return cycling ? 'yes' : 'no';
 }
 
-export function Questionnaire({ initial, onDone }: { initial: SavedChoice | null; onDone: (choice: SavedChoice) => void }) {
+export function Questionnaire({
+  initial,
+  onDone,
+}: {
+  initial: SavedChoice | null;
+  onDone: (choice: SavedChoice) => void;
+}) {
   const [preferences, setPreferences] = useState<Preferences>(
     initial?.mode === 'custom' ? initial.preferences : EMPTY_PREFERENCES,
   );

@@ -1,5 +1,5 @@
 import type { StoryInput } from '../types/preview';
-import { imagePaths, type Assets } from './story';
+import { type Assets, imagePaths } from './story';
 
 function loadImage(src: string) {
   const image = new Image();
@@ -9,10 +9,7 @@ function loadImage(src: string) {
 
 /** The avatar (from its rendered SVG markup) and every image the illustrated story draws. */
 export async function loadAssets(input: StoryInput, avatarMarkup: string): Promise<Assets> {
-  const svg = avatarMarkup.replace(
-    '<svg ',
-    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="660" ',
-  );
+  const svg = avatarMarkup.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="660" ');
   const paths = imagePaths(input);
   const [avatar, ...images] = await Promise.all([
     loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`),

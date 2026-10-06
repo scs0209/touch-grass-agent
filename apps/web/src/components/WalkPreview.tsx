@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { loadAssets } from '../preview/assets';
-import { drawFilmFrame, FILM_HEIGHT, FILM_WIDTH, loadFilm, type Film } from '../preview/film';
-import { BPM, moodFor, playMusic, type Music } from '../preview/music';
-import { FILM_BITS_PER_SECOND, startRecording, VIDEO_BITS_PER_SECOND, type Recording } from '../preview/recording';
-import { buildStory, drawFrame, HEIGHT, WIDTH, type Assets } from '../preview/story';
+import { drawFilmFrame, FILM_HEIGHT, FILM_WIDTH, type Film, loadFilm } from '../preview/film';
+import { BPM, type Music, moodFor, playMusic } from '../preview/music';
+import { FILM_BITS_PER_SECOND, type Recording, startRecording, VIDEO_BITS_PER_SECOND } from '../preview/recording';
+import { type Assets, buildStory, drawFrame, HEIGHT, WIDTH } from '../preview/story';
 import type { Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
 import { directionsUrl } from '../utils/directions';
@@ -72,7 +72,8 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
     canvas.width = film ? FILM_WIDTH : WIDTH;
     canvas.height = film ? FILM_HEIGHT : HEIGHT;
     const total = film ? film.total : story.total;
-    const draw = (t: number) => (film ? drawFilmFrame(context2d, film, t, still) : drawFrame(context2d, story, t, assets!, still));
+    const draw = (t: number) =>
+      film ? drawFilmFrame(context2d, film, t, still) : drawFrame(context2d, story, t, assets!, still);
 
     const audio = (audioRef.current ??= new AudioContext());
     if (audio.state !== 'running') {
@@ -151,9 +152,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
     if (runRef.current) runRef.current.speakers.gain.value = muted ? 0 : 1;
   }, [muted]);
 
-  useEffect(() => () => {
-    if (video) URL.revokeObjectURL(video.url);
-  }, [video]);
+  useEffect(
+    () => () => {
+      if (video) URL.revokeObjectURL(video.url);
+    },
+    [video],
+  );
 
   useEscapeKey(onClose);
 
@@ -167,7 +171,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   }
 
   return (
-    <div className="preview-backdrop" role="dialog" aria-modal="true" aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}>
+    <div
+      className="preview-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}
+    >
       <div className="preview-stage">
         <canvas
           ref={canvasRef}
@@ -179,7 +188,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
           <Avatar outfit={outfit} />
         </div>
         <div className="preview-controls">
-          <button className="preview-icon" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label="Mute music">
+          <button
+            className="preview-icon"
+            onClick={() => setMuted(!muted)}
+            aria-pressed={muted}
+            aria-label="Mute music"
+          >
             {muted ? '🔇' : '🔊'}
           </button>
           <button className="preview-icon" onClick={onClose} aria-label="Close preview" autoFocus>

@@ -12,7 +12,11 @@ export function describeRoute({ route, place, bikeStation }: RecommendResponse) 
   return `${trip} (${route.rideMin} by bike from ${station}, ${route.walkMin} on foot)`;
 }
 
-export function storyInput(result: RecommendResponse, place: NonNullable<RecommendResponse['place']>, outfit: Outfit): StoryInput {
+export function storyInput(
+  result: RecommendResponse,
+  place: NonNullable<RecommendResponse['place']>,
+  outfit: Outfit,
+): StoryInput {
   const { recommendation, thingScenes, origin, route, bikeStation, conditions } = result;
   return {
     durationMin: recommendation.durationMin,

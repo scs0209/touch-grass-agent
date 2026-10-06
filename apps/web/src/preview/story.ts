@@ -118,7 +118,8 @@ interface Frame {
 }
 
 export function drawFrame(ctx: CanvasRenderingContext2D, story: Story, t: number, assets: Assets, still: boolean) {
-  const scene = story.scenes.find((candidate) => t < candidate.start + candidate.length) ?? story.scenes[story.scenes.length - 1];
+  const scene =
+    story.scenes.find((candidate) => t < candidate.start + candidate.length) ?? story.scenes[story.scenes.length - 1];
   const local = Math.min(Math.max(t - scene.start, 0), scene.length);
   const frame: Frame = {
     ctx,
@@ -586,7 +587,13 @@ function drawIntro(frame: Frame) {
   drawSky(frame);
   drawWeather(frame);
   const size = 300 * pop(frame) * (1 + 0.04 * frame.pulse);
-  drawImageCentered(frame, `/fluent-emoji/${skyIcon(conditions.sky, conditions.isDay)}_3d.png`, WIDTH / 2, 470 + Math.sin(frame.time * 2) * 10, size);
+  drawImageCentered(
+    frame,
+    `/fluent-emoji/${skyIcon(conditions.sky, conditions.isDay)}_3d.png`,
+    WIDTH / 2,
+    470 + Math.sin(frame.time * 2) * 10,
+    size,
+  );
   const below = drawText(ctx, `Your next ${durationMin} minutes`, 720, { size: 66, scale: pop(frame, 0.2) });
   drawText(ctx, `${Math.round(conditions.temperatureC)}° · ${conditions.description}`, below + 30, {
     size: 38,
@@ -657,7 +664,10 @@ function project(points: LatLon[]) {
   const ys = flat.map((point) => point.y);
   const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
   const pad = 90;
-  const scale = Math.min((MAP_BOX.width - 2 * pad) / (maxX - minX || 1e-9), (MAP_BOX.height - 2 * pad) / (maxY - minY || 1e-9));
+  const scale = Math.min(
+    (MAP_BOX.width - 2 * pad) / (maxX - minX || 1e-9),
+    (MAP_BOX.height - 2 * pad) / (maxY - minY || 1e-9),
+  );
   const centerX = MAP_BOX.x + MAP_BOX.width / 2;
   const centerY = MAP_BOX.y + MAP_BOX.height / 2;
   return flat.map((point) => ({
@@ -725,7 +735,10 @@ function drawWalk(frame: Frame) {
       continue;
     }
     const part = (reached - lengths[i - 1]) / (lengths[i] - lengths[i - 1] || 1);
-    walker = { x: points[i - 1].x + (points[i].x - points[i - 1].x) * part, y: points[i - 1].y + (points[i].y - points[i - 1].y) * part };
+    walker = {
+      x: points[i - 1].x + (points[i].x - points[i - 1].x) * part,
+      y: points[i - 1].y + (points[i].y - points[i - 1].y) * part,
+    };
     ctx.lineTo(walker.x, walker.y);
     break;
   }
@@ -833,6 +846,11 @@ function drawEnding(frame: Frame) {
   // The end-screen buttons cover roughly the bottom quarter of the frame.
   drawAvatar(frame, WIDTH / 2, 930, 240, 'sway', pop(frame));
   const below = drawText(ctx, 'Ready when you are.', 140, { size: 66, scale: pop(frame) });
-  const next = drawText(ctx, `Leave now · back by ${story.backBy}`, below + 30, { size: 40, weight: 700, scale: pop(frame, 0.3) });
-  if (story.sunsetAt) drawText(ctx, `Sunset at ${story.sunsetAt}`, next + 16, { size: 34, weight: 600, scale: pop(frame, 0.5) });
+  const next = drawText(ctx, `Leave now · back by ${story.backBy}`, below + 30, {
+    size: 40,
+    weight: 700,
+    scale: pop(frame, 0.3),
+  });
+  if (story.sunsetAt)
+    drawText(ctx, `Sunset at ${story.sunsetAt}`, next + 16, { size: 34, weight: 600, scale: pop(frame, 0.5) });
 }

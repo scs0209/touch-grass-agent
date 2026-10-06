@@ -13,10 +13,30 @@ export const BPM: Record<Mood, number> = { bright: 112, mellow: 100, lofi: 86, n
 
 /** Four chords per mood as MIDI notes, one chord per bar. */
 const PROGRESSIONS: Record<Mood, number[][]> = {
-  bright: [[60, 64, 67], [67, 71, 74], [69, 72, 76], [65, 69, 72]],
-  mellow: [[65, 69, 72, 76], [67, 71, 74], [64, 67, 71], [69, 72, 76]],
-  lofi: [[69, 72, 76, 79], [65, 69, 72, 76], [60, 64, 67, 71], [67, 71, 74, 77]],
-  night: [[62, 65, 69, 72], [67, 71, 74, 77], [60, 64, 67, 71], [57, 60, 64, 67]],
+  bright: [
+    [60, 64, 67],
+    [67, 71, 74],
+    [69, 72, 76],
+    [65, 69, 72],
+  ],
+  mellow: [
+    [65, 69, 72, 76],
+    [67, 71, 74],
+    [64, 67, 71],
+    [69, 72, 76],
+  ],
+  lofi: [
+    [69, 72, 76, 79],
+    [65, 69, 72, 76],
+    [60, 64, 67, 71],
+    [67, 71, 74, 77],
+  ],
+  night: [
+    [62, 65, 69, 72],
+    [67, 71, 74, 77],
+    [60, 64, 67, 71],
+    [57, 60, 64, 67],
+  ],
 };
 
 const TONE_CUTOFF_HZ: Record<Mood, number> = { bright: 9000, mellow: 5000, lofi: 1800, night: 2600 };
@@ -29,7 +49,13 @@ export interface Music {
 }
 
 /** Schedules the whole track at once; the story is short and fixed, so no live scheduler is needed. */
-export function playMusic(ctx: AudioContext, mood: Mood, startAt: number, durationSec: number, outputs: AudioNode[]): Music {
+export function playMusic(
+  ctx: AudioContext,
+  mood: Mood,
+  startAt: number,
+  durationSec: number,
+  outputs: AudioNode[],
+): Music {
   const end = startAt + durationSec;
   const beat = 60 / BPM[mood];
 

@@ -1,9 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { Agent } from '@mastra/core/agent';
-import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
-import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
-import { getParkFeatures, type Feature } from './conditions/features.js';
-import { getNearbyParks, rideableRadiusM, walkableRadiusM, type Place } from './conditions/places.js';
+import { type AirQuality, getAirQuality } from './conditions/airQuality.js';
+import { type BikeStation, getNearbyBikeStations } from './conditions/bikes.js';
+import { type Feature, getParkFeatures } from './conditions/features.js';
+import { getNearbyParks, type Place, rideableRadiusM, walkableRadiusM } from './conditions/places.js';
 import {
   getRoundTripRide,
   getRoundTripRides,
@@ -13,8 +13,8 @@ import {
 } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
-import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
-import { recommendationSchema, type Interest, type Preferences, type Recommendation } from './schema.js';
+import { baselineOutfit, type Outfit, outfitOptions, withRequiredExtras } from './outfit.js';
+import { type Interest, type Preferences, type Recommendation, recommendationSchema } from './schema.js';
 
 export interface Park extends Place {
   /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
@@ -62,7 +62,8 @@ async function withinWait<T>(promise: Promise<T>, label: string): Promise<T | nu
   return null;
 }
 
-const firstStationWithBikes = (stations: BikeStation[] | null) => stations?.find((station) => station.bikesAvailable > 0);
+const firstStationWithBikes = (stations: BikeStation[] | null) =>
+  stations?.find((station) => station.bikesAvailable > 0);
 
 /** Parks on foot, plus farther ones a Ddareungi can reach when riding is possible. */
 async function findParks(
@@ -182,15 +183,65 @@ const PLACE_WORDS = /\b(park|garden|plaza|square)s?\b/i;
 const HANGUL = /\p{Script=Hangul}/u;
 const BIKE_WORDS = /\b(bikes?|bicycles?|cycl\w*|ride|riding)\b/i;
 const PARK_WORDS = /\b(parks?|gardens?|forests?|groves?|trails?|arboretum)\b|공원|숲/i;
-const CAPITALIZED_WORDS = ['celsius', 'fahrenheit', 'european', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const CAPITALIZED_WORDS = [
+  'celsius',
+  'fahrenheit',
+  'european',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
 
 const SUBJECTS = [
-  'it', 'this', 'that', 'there', 'here', 'what', 'today', 'tonight', 'now', 'everything', 'nothing', 'outside',
-  'air', 'weather', 'temperature', 'wind', 'rain', 'sun', 'sunset', 'sky', 'skies', 'uv', 'conditions', 'humidity', 'visibility',
+  'it',
+  'this',
+  'that',
+  'there',
+  'here',
+  'what',
+  'today',
+  'tonight',
+  'now',
+  'everything',
+  'nothing',
+  'outside',
+  'air',
+  'weather',
+  'temperature',
+  'wind',
+  'rain',
+  'sun',
+  'sunset',
+  'sky',
+  'skies',
+  'uv',
+  'conditions',
+  'humidity',
+  'visibility',
 ];
 const PREDICATES = new Set([
-  'is', 'was', 'has', 'offers', 'provides', 'looks', 'feels', 'seems', 'sits', 'lies', 'awaits', 'makes',
-  'would', 'will', 'should', 'can', 'could', 'might',
+  'is',
+  'was',
+  'has',
+  'offers',
+  'provides',
+  'looks',
+  'feels',
+  'seems',
+  'sits',
+  'lies',
+  'awaits',
+  'makes',
+  'would',
+  'will',
+  'should',
+  'can',
+  'could',
+  'might',
 ]);
 
 /** A capitalized word after the first one is usually a name, e.g. "a visit to Joseukingmardang". */
@@ -205,14 +256,15 @@ function hasName(sentence: string, allowed: Set<string>) {
     !SUBJECTS.includes(firstBase) &&
     !firstBase.endsWith('ing') &&
     (first !== first.replace(/['’]s$/, '') || PREDICATES.has(second.toLowerCase()));
-  const namedLater = words
-    .slice(1)
-    .some((word) => /^\p{Lu}\p{Ll}/u.test(word) && !allowed.has(word.toLowerCase()));
+  const namedLater = words.slice(1).some((word) => /^\p{Lu}\p{Ll}/u.test(word) && !allowed.has(word.toLowerCase()));
   return startsWithName || namedLater;
 }
 
 function namesAPlace(text: string, { weather, airQuality, nearbyParks }: Conditions) {
-  const allowed = new Set([...CAPITALIZED_WORDS, ...`${weather.description} ${airQuality.level}`.toLowerCase().split(/\s+/)]);
+  const allowed = new Set([
+    ...CAPITALIZED_WORDS,
+    ...`${weather.description} ${airQuality.level}`.toLowerCase().split(/\s+/),
+  ]);
   return HANGUL.test(text) || hasName(text, allowed) || nearbyParks.some((park) => text.includes(park.name));
 }
 
@@ -236,12 +288,17 @@ const near = (value: number, targets: number[], tolerance: number) =>
 
 /** True if a sentence states a number or rain outlook that the measured conditions don't support. */
 function contradictsConditions(sentence: string, { weather, airQuality }: Conditions) {
-  const rainChances = [weather.maxPrecipitationChanceNext3h, ...weather.precipitationChanceByHour.map((hour) => hour.chance)];
+  const rainChances = [
+    weather.maxPrecipitationChanceNext3h,
+    ...weather.precipitationChanceByHour.map((hour) => hour.chance),
+  ];
   const falling = weather.precipitationMm > 0;
   const mentionsRain = RAIN_WORDS.test(sentence);
   const deniesRain = NO_RAIN_WORDS.test(sentence);
-  if (mentionsRain && !deniesRain && !falling && weather.maxPrecipitationChanceNext3h < RAIN_UNLIKELY_PERCENT) return true;
-  if (mentionsRain && deniesRain && (falling || weather.maxPrecipitationChanceNext3h >= RAIN_LIKELY_PERCENT)) return true;
+  if (mentionsRain && !deniesRain && !falling && weather.maxPrecipitationChanceNext3h < RAIN_UNLIKELY_PERCENT)
+    return true;
+  if (mentionsRain && deniesRain && (falling || weather.maxPrecipitationChanceNext3h >= RAIN_LIKELY_PERCENT))
+    return true;
 
   const temperatures = numbersBefore(sentence, /°\s?C/);
   const percents = mentionsRain ? numbersBefore(sentence, /%/) : [];
@@ -381,9 +438,9 @@ function preferredPark({ nearbyParks, preferences }: Conditions, byBike = false)
   return nearbyParks
     .filter((park) => byBike || !park.bikeOnly)
     .reduce<Park | undefined>(
-    (best, park) => (!best || matchScore(park, wanted) >= matchScore(best, wanted) ? park : best),
-    undefined,
-  );
+      (best, park) => (!best || matchScore(park, wanted) >= matchScore(best, wanted) ? park : best),
+      undefined,
+    );
 }
 
 /** A park that matches the answers when the model's pick is known to match none of them. */
@@ -527,7 +584,12 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
     place: place ? { name: place.name, lat: place.lat, lon: place.lon, features: place.features } : null,
     route,
     bikeStation: bikeStation
-      ? { name: bikeStation.name, lat: bikeStation.lat, lon: bikeStation.lon, bikesAvailable: bikeStation.bikesAvailable }
+      ? {
+          name: bikeStation.name,
+          lat: bikeStation.lat,
+          lon: bikeStation.lon,
+          bikesAvailable: bikeStation.bikesAvailable,
+        }
       : null,
     source,
     conditions: {

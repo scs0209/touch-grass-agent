@@ -17,7 +17,9 @@ export function useRecommendation(availableMinutes: number, preferences: Prefere
   async function recommendFor(lat: number, lon: number) {
     setStatus({
       kind: 'loading',
-      message: preferences?.cycling ? 'Checking the sky, the air, and nearby bikes…' : 'Checking the sky, the air, and nearby parks…',
+      message: preferences?.cycling
+        ? 'Checking the sky, the air, and nearby bikes…'
+        : 'Checking the sky, the air, and nearby parks…',
     });
     try {
       setStatus({ kind: 'done', result: await fetchRecommendation(lat, lon, availableMinutes, preferences) });

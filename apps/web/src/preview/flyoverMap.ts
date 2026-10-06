@@ -1,4 +1,4 @@
-import { Map as MapLibre, setWorkerUrl, type ExpressionSpecification } from 'maplibre-gl';
+import { type ExpressionSpecification, Map as MapLibre, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { LatLon } from '../types/geo';
@@ -14,7 +14,15 @@ const STOP_WAIT_MS = 2500;
 const WARM_UP_WAIT_MS = 12000;
 
 /** Minor shop icons, road shields, and one-way arrows clutter a film; main places and transit stay. */
-const HIDDEN_LAYERS = ['poi_r20', 'poi_r7', 'road_one_way_arrow', 'road_one_way_arrow_opposite', 'highway-shield-non-us', 'highway-shield-us-interstate', 'road_shield_us'];
+const HIDDEN_LAYERS = [
+  'poi_r20',
+  'poi_r7',
+  'road_one_way_arrow',
+  'road_one_way_arrow_opposite',
+  'highway-shield-non-us',
+  'highway-shield-us-interstate',
+  'road_shield_us',
+];
 
 const ROUTE_DONE = '#34c759';
 const ROUTE_AHEAD = 'rgba(52, 199, 89, 0.35)';
@@ -101,11 +109,23 @@ function addRoute(map: MapLibre, path: LatLon[]) {
   const firstLabel = layers.find((layer, i) => i > buildings && layer.type === 'symbol')?.id;
   const round = { 'line-cap': 'round', 'line-join': 'round' } as const;
   map.addLayer(
-    { id: 'route-casing', type: 'line', source: 'route', layout: round, paint: { 'line-color': 'rgba(255, 255, 255, 0.9)', 'line-width': 13 } },
+    {
+      id: 'route-casing',
+      type: 'line',
+      source: 'route',
+      layout: round,
+      paint: { 'line-color': 'rgba(255, 255, 255, 0.9)', 'line-width': 13 },
+    },
     firstLabel,
   );
   map.addLayer(
-    { id: 'route-line', type: 'line', source: 'route', layout: round, paint: { 'line-width': 7, 'line-gradient': traveledLine(0) } },
+    {
+      id: 'route-line',
+      type: 'line',
+      source: 'route',
+      layout: round,
+      paint: { 'line-width': 7, 'line-gradient': traveledLine(0) },
+    },
     firstLabel,
   );
 }
@@ -167,7 +187,13 @@ export async function openFlyoverMap({ path, width, height, look, stops, signal 
     for (const stop of stops) {
       if (signal.aborted) throw new Error('Preview closed');
       if (Date.now() > giveUpAt) break;
-      map.jumpTo({ center: toCenter(stop.center), zoom: stop.zoom, pitch: stop.pitch, bearing: stop.bearing, padding: { top: stop.lift, bottom: 0, left: 0, right: 0 } });
+      map.jumpTo({
+        center: toCenter(stop.center),
+        zoom: stop.zoom,
+        pitch: stop.pitch,
+        bearing: stop.bearing,
+        padding: { top: stop.lift, bottom: 0, left: 0, right: 0 },
+      });
       await waitFor(map, 'idle', STOP_WAIT_MS);
     }
     if (signal.aborted) throw new Error('Preview closed');

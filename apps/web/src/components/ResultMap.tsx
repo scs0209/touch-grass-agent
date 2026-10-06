@@ -2,7 +2,16 @@ import { divIcon, type FitBoundsOptions } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CircleMarker, MapContainer, Marker, Pane, Polyline, TileLayer, Tooltip, type TooltipProps } from 'react-leaflet';
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  Pane,
+  Polyline,
+  TileLayer,
+  Tooltip,
+  type TooltipProps,
+} from 'react-leaflet';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { Route } from '../types/api';
 import type { LatLon, NamedPoint } from '../types/geo';
@@ -76,9 +85,19 @@ export function ResultMap({ caption, ...props }: ResultMapProps & { caption: str
       {/* The card's backdrop-filter would trap a fixed overlay inside the card, so it renders on body. */}
       {expanded &&
         createPortal(
-          <div className="map-backdrop" role="dialog" aria-modal="true" aria-label={`Map to ${props.place?.name ?? 'your destination'}`}>
+          <div
+            className="map-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Map to ${props.place?.name ?? 'your destination'}`}
+          >
             <RouteMap {...props} expanded />
-            <button ref={closeRef} className="map-close" onClick={() => setExpanded(false)} aria-label="Close the full map">
+            <button
+              ref={closeRef}
+              className="map-close"
+              onClick={() => setExpanded(false)}
+              aria-label="Close the full map"
+            >
               ✕
             </button>
             {caption && <p className="map-caption">{caption}</p>}
@@ -132,7 +151,11 @@ function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProp
         />
       )}
       <Pane name="origin" style={{ zIndex: 650 }}>
-        <CircleMarker center={originPoint} radius={8} pathOptions={{ color: '#fff', fillColor: '#2a6fdb', fillOpacity: 1 }}>
+        <CircleMarker
+          center={originPoint}
+          radius={8}
+          pathOptions={{ color: '#fff', fillColor: '#2a6fdb', fillOpacity: 1 }}
+        >
           <Tooltip>You are here</Tooltip>
         </CircleMarker>
       </Pane>

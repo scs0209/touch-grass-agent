@@ -2,7 +2,12 @@ import type { RecommendResponse, TripPhotos } from '../types/api';
 import type { LatLon } from '../types/geo';
 import type { Preferences } from '../types/preferences';
 
-export async function fetchRecommendation(lat: number, lon: number, availableMinutes: number, preferences: Preferences | null) {
+export async function fetchRecommendation(
+  lat: number,
+  lon: number,
+  availableMinutes: number,
+  preferences: Preferences | null,
+) {
   const response = await fetch('/api/recommend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

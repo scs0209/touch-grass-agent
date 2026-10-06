@@ -28,7 +28,12 @@ const OUTER_HEM_Y: Record<OuterLayerKind, number> = {
 
 const TORSO = 'M70 126 Q70 112 86 112 H114 Q130 112 130 126 L134 204 H66 Z';
 
-function Arm({ side, sleeveColor, longSleeve, handColor }: {
+function Arm({
+  side,
+  sleeveColor,
+  longSleeve,
+  handColor,
+}: {
   side: 'left' | 'right';
   sleeveColor: string;
   longSleeve: boolean;
@@ -98,9 +103,19 @@ function OuterLayer({ outer }: { outer: OuterLayerKind }) {
   if (outer === 'padded') {
     return (
       <g {...OUTLINE}>
-        <path d={`M66 128 Q66 110 86 110 H114 Q134 110 134 128 L138 ${hemY} Q100 ${hemY + 6} 62 ${hemY} Z`} fill={color} />
+        <path
+          d={`M66 128 Q66 110 86 110 H114 Q134 110 134 128 L138 ${hemY} Q100 ${hemY + 6} 62 ${hemY} Z`}
+          fill={color}
+        />
         {[136, 160, 184].map((y) => (
-          <path key={y} d={`M68 ${y} Q100 ${y + 5} 132 ${y}`} fill="none" stroke="#fff" strokeOpacity={0.3} strokeWidth={2.5} />
+          <path
+            key={y}
+            d={`M68 ${y} Q100 ${y + 5} 132 ${y}`}
+            fill="none"
+            stroke="#fff"
+            strokeOpacity={0.3}
+            strokeWidth={2.5}
+          />
         ))}
         <rect x={82} y={104} width={36} height={14} rx={7} fill={color} />
         <line x1={100} y1={118} x2={100} y2={hemY + 2} stroke="#fff" strokeOpacity={0.5} />
@@ -120,9 +135,7 @@ function OuterLayer({ outer }: { outer: OuterLayerKind }) {
         <path d="M86 112 H95 L93 148 L80 128 Z" />
         <path d="M114 112 H105 L107 148 L120 128 Z" />
       </g>
-      {outer === 'light_jacket' && (
-        <rect x={66} y={hemY - 8} width={68} height={8} rx={3} fill="#000" opacity={0.15} />
-      )}
+      {outer === 'light_jacket' && <rect x={66} y={hemY - 8} width={68} height={8} rx={3} fill="#000" opacity={0.15} />}
       {outer === 'trench' && (
         <g>
           <rect x={62} y={186} width={76} height={8} rx={2} fill="#b08f63" />
@@ -134,8 +147,7 @@ function OuterLayer({ outer }: { outer: OuterLayerKind }) {
           ))}
         </g>
       )}
-      {outer === 'coat' &&
-        [146, 172, 198].map((y) => <circle key={y} cx={88} cy={y} r={2.5} fill="#1d1f24" />)}
+      {outer === 'coat' && [146, 172, 198].map((y) => <circle key={y} cx={88} cy={y} r={2.5} fill="#1d1f24" />)}
     </g>
   );
 }
@@ -154,10 +166,7 @@ function Head({ extras }: { extras: Extra[] }) {
     <g>
       <rect x={92} y={104} width={16} height={14} fill={SKIN} />
       <circle cx={100} cy={72} r={44} fill={SKIN} {...OUTLINE} />
-      <path
-        d="M56 78 Q52 24 100 26 Q148 24 144 78 Q140 60 128 52 Q112 64 86 60 Q70 62 56 78 Z"
-        fill={HAIR}
-      />
+      <path d="M56 78 Q52 24 100 26 Q148 24 144 78 Q140 60 128 52 Q112 64 86 60 Q70 62 56 78 Z" fill={HAIR} />
 
       {[84, 116].map((x) => (
         <g key={x}>

@@ -51,7 +51,10 @@ function featureOf(tags: Record<string, string>) {
 async function fetchFeatures(parks: LatLon[]): Promise<Feature[][]> {
   const filter = `[~"^(${OSM_KEYS.join('|')})$"~"^(${Object.keys(OSM_FEATURES).join('|')})$"]`;
   const queries = parks
-    .map(({ lat, lon }, index) => `nwr(around:${RADIUS_M},${lat},${lon})${filter};out tags;make park index="${index}";out;`)
+    .map(
+      ({ lat, lon }, index) =>
+        `nwr(around:${RADIUS_M},${lat},${lon})${filter};out tags;make park index="${index}";out;`,
+    )
     .join('');
 
   const response = await fetch(OVERPASS_URL, {

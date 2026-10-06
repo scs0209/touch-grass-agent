@@ -5,12 +5,12 @@ import type { LatLon } from './geo.js';
 import {
   askModel,
   buildResponse,
+  type Conditions,
   fallbackRecommendation,
   getConditions,
-  sanitize,
-  type Conditions,
   type RecommendResponse,
   type Source,
+  sanitize,
 } from './recommend.js';
 import { recommendationSchema, recommendRequestSchema } from './schema.js';
 

@@ -146,12 +146,18 @@ function overview(track: Track) {
   const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
   const pad = 80;
   // 512-pixel tiles: the world is 512 × 2^zoom CSS pixels wide.
-  const zoom = Math.log2(Math.min((VIEW_WIDTH - 2 * pad) / ((maxX - minX) * 512 || 1e-9), (VIEW_HEIGHT - 2 * pad) / ((maxY - minY) * 512 || 1e-9)));
+  const zoom = Math.log2(
+    Math.min(
+      (VIEW_WIDTH - 2 * pad) / ((maxX - minX) * 512 || 1e-9),
+      (VIEW_HEIGHT - 2 * pad) / ((maxY - minY) * 512 || 1e-9),
+    ),
+  );
   return { center: fromMercator((minX + maxX) / 2, (minY + maxY) / 2), zoom: Math.min(Math.max(zoom, 11), 16.5) };
 }
 
 /** Longer ways are followed from higher up, so the walker never races across the frame. */
-const trackZoom = (track: Track) => Math.min(17, Math.max(15.2, 16.8 - 0.8 * Math.log2(Math.max(track.length, 400) / 1200)));
+const trackZoom = (track: Track) =>
+  Math.min(17, Math.max(15.2, 16.8 - 0.8 * Math.log2(Math.max(track.length, 400) / 1200)));
 
 /**
  * Moves between two cameras like a drone: the center travels fast while zoomed out and slows as it
@@ -190,7 +196,13 @@ function plan(track: Track): Plan {
   const startHeading = headingAt(track, 0);
   const endHeading = headingAt(track, track.length);
   const destination = track.points[track.points.length - 1];
-  const wide: MapCamera = { center: view.center, zoom: view.zoom - 0.15, pitch: 35, bearing: startHeading - 25, lift: 0 };
+  const wide: MapCamera = {
+    center: view.center,
+    zoom: view.zoom - 0.15,
+    pitch: 35,
+    bearing: startHeading - 25,
+    lift: 0,
+  };
 
   const follow = (fraction: number, progress: number): MapCamera => ({
     center: pointAt(track, fraction * track.length),
@@ -200,7 +212,13 @@ function plan(track: Track): Plan {
     lift: TRACK_LIFT,
   });
   const arrived = follow(1, 1);
-  const circled: MapCamera = { center: destination, zoom: Math.max(zoom + 0.6, 17), pitch: 55, bearing: endHeading + 70, lift: 120 };
+  const circled: MapCamera = {
+    center: destination,
+    zoom: Math.max(zoom + 0.6, 17),
+    pitch: 55,
+    bearing: endHeading + 70,
+    lift: 120,
+  };
   const orbit = (progress: number): MapCamera => {
     // Past the arrival shot, keep circling slowly for the things to do.
     if (progress <= 1) return fly(arrived, circled, easeInOutSine(progress));
@@ -249,7 +267,9 @@ function grade(image: HTMLImageElement, input: StoryInput) {
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext('2d')!;
   const gloomy = ['cloudy', 'fog', 'drizzle', 'rain', 'snow', 'thunder'].includes(input.conditions.sky);
-  ctx.filter = gloomy ? 'saturate(0.78) contrast(1.04) brightness(0.96)' : 'saturate(0.9) contrast(1.06) brightness(1.01)';
+  ctx.filter = gloomy
+    ? 'saturate(0.78) contrast(1.04) brightness(0.96)'
+    : 'saturate(0.9) contrast(1.06) brightness(1.01)';
   ctx.drawImage(image, 0, 0);
   return canvas;
 }
@@ -258,8 +278,12 @@ async function loadPhoto(photo: TripPhoto, input: StoryInput, signal: AbortSigna
   signal.throwIfAborted();
   const image = new Image();
   image.src = tripPhotoUrl(photo.key);
-  const tooSlow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Photo too slow')), PHOTO_WAIT_MS));
-  const stopped = new Promise<never>((_, reject) => signal.addEventListener('abort', () => reject(new Error('Stopped')), { once: true }));
+  const tooSlow = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Photo too slow')), PHOTO_WAIT_MS),
+  );
+  const stopped = new Promise<never>((_, reject) =>
+    signal.addEventListener('abort', () => reject(new Error('Stopped')), { once: true }),
+  );
   await Promise.race([image.decode(), tooSlow, stopped]);
   return { photo, image: grade(image, input) };
 }
@@ -285,7 +309,14 @@ export async function loadFilm(input: StoryInput, bpm: number, signal: AbortSign
   const [map, photos] = await Promise.all([
     import('./flyoverMap')
       .then(({ openFlyoverMap }) =>
-        openFlyoverMap({ path: there, width: FILM_WIDTH, height: FILM_HEIGHT, look: lookFor(input), stops: warmUpStops(camera), signal }),
+        openFlyoverMap({
+          path: there,
+          width: FILM_WIDTH,
+          height: FILM_HEIGHT,
+          look: lookFor(input),
+          stops: warmUpStops(camera),
+          signal,
+        }),
       )
       .catch(() => {
         noMap.abort();
@@ -336,22 +367,38 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   const captions: CaptionSpan[] = [];
   let start = 0;
 
-  const addMap = (kind: MapShotKind, beats: number, move: (p: number) => MapCamera, walker: (p: number) => number | null) => {
+  const addMap = (
+    kind: MapShotKind,
+    beats: number,
+    move: (p: number) => MapCamera,
+    walker: (p: number) => number | null,
+  ) => {
     const shot: MapShot = { view: 'map', kind, start, length: beats * beat, camera: move, walker };
     shots.push(shot);
     start += shot.length;
     return shot;
   };
-  const caption = (shot: { start: number; length: number }, text: Caption, placement: CaptionSpan['placement'] = 'bottom') =>
-    captions.push({ caption: text, start: shot.start, end: shot.start + shot.length, placement });
+  const caption = (
+    shot: { start: number; length: number },
+    text: Caption,
+    placement: CaptionSpan['placement'] = 'bottom',
+  ) => captions.push({ caption: text, start: shot.start, end: shot.start + shot.length, placement });
 
   // Establishing shot over the whole way, then down to street level where the walk starts.
   const startCamera = camera.follow(0, 0);
-  const drift: MapCamera = { ...camera.wide, zoom: camera.wide.zoom + 0.25, pitch: 40, bearing: camera.wide.bearing + 10 };
+  const drift: MapCamera = {
+    ...camera.wide,
+    zoom: camera.wide.zoom + 0.25,
+    pitch: 40,
+    bearing: camera.wide.bearing + 10,
+  };
   const opening = addMap(
     'opening',
     SHOT_BEATS.opening,
-    (p) => (p < 0.4 ? fly(camera.wide, drift, easeInOutSine(p / 0.4)) : fly(drift, startCamera, easeInOutSine((p - 0.4) / 0.6))),
+    (p) =>
+      p < 0.4
+        ? fly(camera.wide, drift, easeInOutSine(p / 0.4))
+        : fly(drift, startCamera, easeInOutSine((p - 0.4) / 0.6)),
     (p) => (p < 0.4 ? null : 0),
   );
   const dress = input.outfitItems.slice(0, 3).map((item) => item.label.toLowerCase());
@@ -386,7 +433,10 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
       caption(
         shot,
         thing
-          ? { kicker: `Once you're there · ${i + 1}/${Math.min(input.things.length, photos.length)}`, title: thing.text }
+          ? {
+              kicker: `Once you're there · ${i + 1}/${Math.min(input.things.length, photos.length)}`,
+              title: thing.text,
+            }
           : { kicker: "Once you're there", title: input.placeName },
       );
     });
@@ -395,7 +445,12 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
     const things = input.things.slice(0, MAX_MAP_THINGS);
     if (things.length > 0) {
       const each = SHOT_BEATS.thing * beat;
-      const circling = addMap('things', SHOT_BEATS.thing * things.length, (p) => camera.orbit(1 + p * things.length), () => null);
+      const circling = addMap(
+        'things',
+        SHOT_BEATS.thing * things.length,
+        (p) => camera.orbit(1 + p * things.length),
+        () => null,
+      );
       things.forEach((thing, i) =>
         caption(
           { start: circling.start + i * each, length: each },
@@ -408,7 +463,12 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   // Pull back up over the whole way, so the park reads as part of the neighborhood.
   const previous = shots[shots.length - 1];
   const from = previous.view === 'map' ? previous.camera(1) : camera.orbit(1);
-  const ending = addMap('ending', SHOT_BEATS.ending, (p) => camera.ending(from, p), () => null);
+  const ending = addMap(
+    'ending',
+    SHOT_BEATS.ending,
+    (p) => camera.ending(from, p),
+    () => null,
+  );
   caption(
     ending,
     {
@@ -444,7 +504,11 @@ function handheld(t: number) {
 function drawPhotoShot(ctx: CanvasRenderingContext2D, shot: PhotoShot, progress: number, t: number, still: boolean) {
   const { image } = shot;
   const p = easeInOutSine(clamp01(still ? 0.5 : progress));
-  const view = { scale: lerp(shot.from.scale, shot.to.scale, p), x: lerp(shot.from.x, shot.to.x, p), y: lerp(shot.from.y, shot.to.y, p) };
+  const view = {
+    scale: lerp(shot.from.scale, shot.to.scale, p),
+    x: lerp(shot.from.x, shot.to.x, p),
+    y: lerp(shot.from.y, shot.to.y, p),
+  };
   const cover = Math.max(FILM_WIDTH / image.width, FILM_HEIGHT / image.height) * view.scale;
   const width = image.width * cover;
   const height = image.height * cover;
@@ -460,7 +524,12 @@ function drawPhotoShot(ctx: CanvasRenderingContext2D, shot: PhotoShot, progress:
 }
 
 const onScreen = ({ x, y }: { x: number; y: number }, margin: number) =>
-  Number.isFinite(x) && Number.isFinite(y) && x > -margin && x < FILM_WIDTH + margin && y > -margin && y < FILM_HEIGHT + margin;
+  Number.isFinite(x) &&
+  Number.isFinite(y) &&
+  x > -margin &&
+  x < FILM_WIDTH + margin &&
+  y > -margin &&
+  y < FILM_HEIGHT + margin;
 
 /** Points far behind the camera can project onto the screen mirrored; this keeps them off it. */
 function inFront(camera: MapCamera, point: LatLon) {
@@ -487,7 +556,12 @@ function drawHome(ctx: CanvasRenderingContext2D, at: { x: number; y: number }) {
 }
 
 /** A location puck with a beam pointing the way, like a phone's map. */
-function drawWalker(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, toward: { x: number; y: number }, t: number) {
+function drawWalker(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  toward: { x: number; y: number },
+  t: number,
+) {
   const angle = Math.atan2(toward.y - at.y, toward.x - at.x);
   ctx.save();
   const beam = ctx.createRadialGradient(at.x, at.y, 10, at.x, at.y, 110);
@@ -549,7 +623,14 @@ function drawPin(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, t:
   ctx.restore();
 }
 
-function drawMapShot(ctx: CanvasRenderingContext2D, film: Film, shot: MapShot, progress: number, t: number, still: boolean) {
+function drawMapShot(
+  ctx: CanvasRenderingContext2D,
+  film: Film,
+  shot: MapShot,
+  progress: number,
+  t: number,
+  still: boolean,
+) {
   const p = still ? 0.5 : clamp01(progress);
   const camera = shot.camera(p);
   const walker = shot.walker(p);
@@ -618,7 +699,9 @@ function captionLines(ctx: CanvasRenderingContext2D, caption: Caption): Line[] {
   const add = (text: string, size: number, weight: number, alpha: number, maxLines: number, gapAfter: number) => {
     ctx.font = `${weight} ${size}px ${FONT}`;
     const wrapped = wrapLines(ctx, text, maxWidth).slice(0, maxLines);
-    wrapped.forEach((part, i) => lines.push({ text: part, size, weight, alpha, gapAfter: i === wrapped.length - 1 ? gapAfter : size * 0.18 }));
+    wrapped.forEach((part, i) =>
+      lines.push({ text: part, size, weight, alpha, gapAfter: i === wrapped.length - 1 ? gapAfter : size * 0.18 }),
+    );
   };
   if (caption.kicker) add(caption.kicker.toUpperCase(), 30, 600, 0.82, 1, 18);
   add(caption.title, 72, 700, 1, 3, 20);
@@ -743,7 +826,8 @@ export function drawFilmFrame(ctx: CanvasRenderingContext2D, film: Film, t: numb
   for (const span of film.captions) {
     if (t >= span.start && t <= span.end) drawCaption(ctx, span, t, still);
   }
-  if (shot.view === 'map' && shot.kind === 'ending') drawCredits(ctx, film, still ? 1 : clamp01((t - shot.start - 0.6) / 0.6));
+  if (shot.view === 'map' && shot.kind === 'ending')
+    drawCredits(ctx, film, still ? 1 : clamp01((t - shot.start - 0.6) / 0.6));
   drawProgress(ctx, Math.min(t / film.total, 1));
   ctx.restore();
 }

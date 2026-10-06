@@ -60,7 +60,20 @@ const WIKIMEDIA_RADIUS_M = 400;
 /** One of Wikimedia's standard thumbnail widths, which are served from cache instead of rendered on request. */
 const WIKIMEDIA_WIDTH = 1920;
 /** Words in a park's name that say nothing about which park it is. */
-const GENERIC_NAME_WORDS = new Set(['park', 'the', 'of', 'and', 'garden', 'gardens', 'children', 'childrens', 'neighborhood', 'square', 'playground', 'green']);
+const GENERIC_NAME_WORDS = new Set([
+  'park',
+  'the',
+  'of',
+  'and',
+  'garden',
+  'gardens',
+  'children',
+  'childrens',
+  'neighborhood',
+  'square',
+  'playground',
+  'green',
+]);
 
 const IMAGE_TTL_MS = 30 * 60 * 1000;
 const imageUrls = new Map<string, { url: string; expiresAt: number }>();
@@ -181,7 +194,10 @@ function mapillaryPlaceShots(images: MapillaryImage[], destination: LatLon, used
   const sequences = new Set<string>();
   return images
     .filter((image) => !used.has(image.id))
-    .map((image) => ({ image, distance: imagePoint(image) ? distanceInMeters(imagePoint(image)!, destination) : Infinity }))
+    .map((image) => ({
+      image,
+      distance: imagePoint(image) ? distanceInMeters(imagePoint(image)!, destination) : Infinity,
+    }))
     .filter(({ distance }) => distance <= PLACE_SEARCH_M)
     .sort((a, b) => a.distance - b.distance)
     .filter(({ image }) => {
@@ -234,7 +250,11 @@ const nameWords = (text: string) =>
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word.length > 2 && !GENERIC_NAME_WORDS.has(word));
 
-const stripTags = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+const stripTags = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * Geotagged Commons photos near the park whose title names the park. Photos that only happen to be
@@ -262,7 +282,9 @@ async function wikimediaPlaceShots(destination: LatLon, placeName: string, cance
     signal: deadline(cancel),
   });
   if (!response.ok) throw new Error(`Wikimedia failed: ${response.status}`);
-  const pages = Object.values(((await response.json()) as { query?: { pages?: Record<string, CommonsPage> } }).query?.pages ?? {});
+  const pages = Object.values(
+    ((await response.json()) as { query?: { pages?: Record<string, CommonsPage> } }).query?.pages ?? {},
+  );
 
   const stems = new Set<string>();
   return pages

@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import { distanceInMeters, viewboxAround, type LatLon } from '../geo.js';
+import { distanceInMeters, type LatLon, viewboxAround } from '../geo.js';
 
 export interface Place {
   id: string;
