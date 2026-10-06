@@ -134,7 +134,7 @@ changed since the README was last checked and `README.md` wasn't touched.
 ## Where things are
 
 - `apps/server/src/conditions/`: weather and air quality (Open-Meteo), parks (Nominatim), park features
-  (Overpass), walking routes (OSRM), Seoul bikes.
+  (Overpass), walking and cycling routes (OSRM), Seoul bikes.
 - `apps/server/src/agent.ts`: the Gemma prompt. `apps/server/src/recommend.ts`: gathering conditions,
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
 - `apps/web/src/`: `App.tsx` (screens), `Questionnaire.tsx`, `WeatherPanel.tsx`, `ResultMap.tsx`, `Avatar.tsx`.

@@ -39,8 +39,8 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 ## How it works
 
-- `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, what each park has (playground, water, viewpoint, and so on) from Overpass, walking routes from OSRM (all keyless), and Seoul bike stations. The public Overpass server is often slow, so the app waits at most 3 seconds for it and caches park features for a day.
-- Parks are first searched by straight-line distance, assuming paths are about 1.3 times longer. One OSRM request then measures the real round trip to every park (at the same time as the features lookup, also waiting at most 3 seconds), and parks whose walk there and back takes longer than the time you chose are dropped before Gemma picks. The card's time always covers the real route shown on the map.
+- `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, what each park has (playground, water, viewpoint, and so on) from Overpass, walking and cycling routes from OSRM (all keyless), and Seoul bike stations. The public Overpass server is often slow, so the app waits at most 3 seconds for it and caches park features for a day.
+- Parks are first searched by straight-line distance, assuming paths are about 1.3 times longer. One OSRM request then measures the real round trip to every park (at the same time as the features lookup, also waiting at most 3 seconds), and parks whose walk there and back takes longer than the time you chose are dropped before Gemma picks. The card's time always covers the real route shown on the map. For a bike suggestion, the route is the walk to the station, the ride to the park and back (OSRM's bike profile), and the walk home, plus 2 minutes to rent and return the bike; the map caption and the preview show the riding and walking minutes, and the directions button opens cycling directions through the station.
 - Things to do at the park may only mention facilities that OpenStreetMap shows there; the server drops any suggestion that names a missing facility or another place.
 - The reason is checked against the measured conditions: a sentence whose temperature, rain chance, air quality index, UV, or wind doesn't match, or that mentions rain when the chance is low (or denies it when rain is likely), is dropped.
 - `apps/server/src/agent.ts` is a Mastra agent pointed at Ollama's OpenAI-compatible endpoint. The model only picks from real candidate parks and a fixed clothing catalog, so it never invents coordinates or items.
@@ -71,7 +71,7 @@ Without Entire installed, the Entire hooks do nothing. Cursor (`.cursor/hooks.js
 - Clothing and weather icons: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D by Microsoft, MIT ([license](apps/web/public/fluent-emoji/LICENSE)).
 - Glass styling: the glassmorphism skill and `apps/web/src/glass-tokens.css` come from [fengshao1227/ccg-workflow](https://github.com/fengshao1227/ccg-workflow), MIT ([license](.agents/skills/glassmorphism/LICENSE)).
 - Map tiles, parks, and park features: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim and the [Overpass API](https://overpass-api.de).
-- Walking routes: [OSRM](https://project-osrm.org) on FOSSGIS's [routing.openstreetmap.de](https://routing.openstreetmap.de).
+- Walking and cycling routes: [OSRM](https://project-osrm.org) on FOSSGIS's [routing.openstreetmap.de](https://routing.openstreetmap.de).
 - Weather, air quality, and city search: [Open-Meteo](https://open-meteo.com) (CC BY 4.0).
 - Seoul public bikes: [Seoul Open Data Plaza](https://data.seoul.go.kr).
 - Model: [Gemma](https://ai.google.dev/gemma) by Google, under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
