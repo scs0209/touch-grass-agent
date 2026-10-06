@@ -32,6 +32,8 @@ const MODEL_ATTEMPTS = 2;
 /** Overpass usually answers in about 3 s and OSRM in about 1 s; past that the model plans without them. */
 const DETAILS_WAIT_MS = 3000;
 const MAX_THINGS_TO_DO = 3;
+/** Shorter outings aren't worth unlocking and docking a public bike. */
+const MIN_BIKE_MINUTES = 30;
 
 function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   return promise.catch((error) => {
@@ -71,7 +73,9 @@ export async function getConditions(
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
-    optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null),
+    availableMinutes >= MIN_BIKE_MINUTES
+      ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
+      : null,
     optional(getNearbyParks(origin, walkableRadiusM(availableMinutes)), 'parks', []).then((places) =>
       withDetails(origin, places, availableMinutes),
     ),
@@ -337,7 +341,7 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
   }
 
   const stationWithBikes = nearbyBikeStations?.find((station) => station.bikesAvailable > 0);
-  if (stationWithBikes && availableMinutes >= 30 && preferences?.cycling !== false) {
+  if (stationWithBikes && preferences?.cycling !== false) {
     return {
       verdict: 'go',
       activity: `Grab a bike at ${stationWithBikes.name} and ride`,
