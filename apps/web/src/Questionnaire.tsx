@@ -82,6 +82,7 @@ export function Questionnaire({ initial, onDone }: { initial: SavedChoice | null
       />
       <ChoiceGroup
         title="Public bikes?"
+        hint="Rides are suggested only if you pick yes (Seoul, 30 minutes or more). Otherwise you walk."
         labels={CYCLING_LABELS}
         isActive={(answer) => cycling === answer}
         onToggle={(answer) => update({ cycling: cycling === answer ? null : answer === 'yes' })}

@@ -42,8 +42,8 @@ Rules:
   with water; "views" fits a viewpoint; "greenery" and "quiet" fit calm walks among trees.
   company "kids" prefers a park with a playground, "dog" a long walk with room to sniff around,
   "friends" something to do together. Preferences never override the safety rules or the features rule.
-- If preferences.cycling is false, never set bikeStationId or mention bikes.
-- If a nearby bike station has bikes, you may mention it and set bikeStationId to that station's id.
+- nearbyBikeStations is listed only when the person said they are happy to ride a public bike.
+  If a station there has bikes, you may suggest a ride and set bikeStationId to that station's id.
   Only mention bikes or cycling when you set bikeStationId; otherwise describe the trip as a walk.
 - The reason must cite the actual numbers you were given (temperature, rain chance, air quality, etc.) in at most two sentences.
   Write numbers naturally with units, like "12°C" or "850 m". Never write input field names such as

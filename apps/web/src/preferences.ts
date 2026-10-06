@@ -60,7 +60,7 @@ export function summarize(choice: SavedChoice) {
     pace && PACE_LABELS[pace],
     interests.map((interest) => INTEREST_LABELS[interest]).join(', '),
     company && COMPANY_LABELS[company],
-    cycling === false && CYCLING_LABELS.no,
+    cycling === true && CYCLING_LABELS.yes,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : 'No preferences picked';
 }

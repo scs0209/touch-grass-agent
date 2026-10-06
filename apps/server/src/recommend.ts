@@ -68,12 +68,11 @@ const firstStationWithBikes = (stations: BikeStation[] | null) => stations?.find
 async function findParks(
   origin: LatLon,
   availableMinutes: number,
-  preferences: Preferences | null,
   stations: Promise<BikeStation[] | null>,
 ): Promise<Park[]> {
   const walkRadius = walkableRadiusM(availableMinutes);
   const walkPlaces = await optional(getNearbyParks(origin, walkRadius), 'parks', []);
-  const station = preferences?.cycling === false ? undefined : firstStationWithBikes(await stations);
+  const station = firstStationWithBikes(await stations);
   const ridePlaces = station
     ? await optional(
         getNearbyParks(origin, rideableRadiusM(availableMinutes), { beyondM: walkRadius, idPrefix: 'B' }),
@@ -132,15 +131,16 @@ export async function getConditions(
   availableMinutes: number,
   preferences: Preferences | null,
 ): Promise<Conditions> {
+  // Riding is a matter of taste, so bikes come up only for people who said yes on the questionnaire.
   const stations =
-    availableMinutes >= MIN_BIKE_MINUTES
+    preferences?.cycling === true && availableMinutes >= MIN_BIKE_MINUTES
       ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
       : Promise.resolve(null);
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
     stations,
-    findParks(origin, availableMinutes, preferences, stations),
+    findParks(origin, availableMinutes, stations),
   ]);
   return {
     availableMinutes,
@@ -395,7 +395,7 @@ function betterMatch(park: Park, conditions: Conditions) {
 }
 
 export function fallbackRecommendation(conditions: Conditions): Recommendation {
-  const { weather, availableMinutes, nearbyBikeStations, preferences } = conditions;
+  const { weather, availableMinutes, nearbyBikeStations } = conditions;
   const summary = conditionsSummary(conditions);
   const park = preferredPark(conditions);
 
@@ -409,7 +409,7 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
   }
 
   const stationWithBikes = firstStationWithBikes(nearbyBikeStations);
-  if (stationWithBikes && preferences?.cycling !== false) {
+  if (stationWithBikes) {
     const rideTo = preferredPark(conditions, true);
     return {
       verdict: 'go',
@@ -441,8 +441,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const modelStation = nearbyBikeStations?.find((station) => station.id === recommendation.bikeStationId);
   const saysBike = BIKE_WORDS.test(modelActivity);
   // Gemma sometimes picks a station but describes a walk; a walkable park then stays the walk the person reads.
-  const stationAllowed =
-    modelStation !== undefined && conditions.preferences?.cycling !== false && (saysBike || modelPark?.bikeOnly);
+  const stationAllowed = modelStation !== undefined && (saysBike || modelPark?.bikeOnly);
   // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
   // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed.

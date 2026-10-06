@@ -96,8 +96,11 @@ export function App() {
   const [editingChoice, setEditingChoice] = useState(false);
 
   async function recommendFor(lat: number, lon: number) {
-    setStatus({ kind: 'loading', message: 'Checking the sky, the air, and nearby bikes…' });
     const preferences = choice?.mode === 'custom' ? choice.preferences : null;
+    setStatus({
+      kind: 'loading',
+      message: preferences?.cycling ? 'Checking the sky, the air, and nearby bikes…' : 'Checking the sky, the air, and nearby parks…',
+    });
     try {
       setStatus({ kind: 'done', result: await fetchRecommendation(lat, lon, availableMinutes, preferences) });
     } catch (error) {
