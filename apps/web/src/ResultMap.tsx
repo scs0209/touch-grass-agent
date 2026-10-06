@@ -2,7 +2,7 @@ import { divIcon, type FitBoundsOptions } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CircleMarker, MapContainer, Marker, Pane, Polyline, TileLayer, Tooltip } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Pane, Polyline, TileLayer, Tooltip, type TooltipProps } from 'react-leaflet';
 import type { Route } from './previewDraw';
 
 type LatLngTuple = [number, number];
@@ -32,10 +32,10 @@ const FULL_MAP_PADDING: FitBoundsOptions = { paddingTopLeft: [90, 80], paddingBo
 const bikeIcon = divIcon({ className: 'bike-marker', html: '🚲', iconSize: [28, 28], iconAnchor: [14, 34] });
 
 /** Bounds fitting puts the station near the map's edge on the side away from the park, so its name faces the park. */
-const STATION_LABEL = {
+const STATION_LABEL: Record<'left' | 'right', Pick<TooltipProps, 'direction' | 'offset'>> = {
   left: { direction: 'left', offset: [-12, -20] },
   right: { direction: 'right', offset: [12, -20] },
-} as const;
+};
 
 function stationLabel(station: Point, place: Point | null) {
   if (place && station.lon > place.lon) return STATION_LABEL.left;
