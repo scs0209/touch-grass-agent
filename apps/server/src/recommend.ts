@@ -2,7 +2,7 @@ import type { Agent } from '@mastra/core/agent';
 import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
 import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
-import { getRoundTripWalk, type Route } from './conditions/route.js';
+import { getRoundTripWalk, prefetchRoundTripWalks, type Route } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
@@ -121,6 +121,11 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
       ? withRequiredExtras(recommendation.outfit, weather, airQuality)
       : conditions.baselineOutfit,
   };
+}
+
+/** Routes to every candidate park, fetched while the model is still choosing so plan-route rarely waits. */
+export function prefetchRoutes(origin: LatLon, conditions: Conditions) {
+  if (!isUnsafeOutside(conditions)) prefetchRoundTripWalks(origin, conditions.nearbyParks);
 }
 
 export async function askModel(agent: Agent, conditions: Conditions): Promise<Recommendation | null> {

@@ -38,7 +38,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 - `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, walking routes from OSRM (all keyless), and Seoul bike stations.
 - `apps/server/src/agent.ts` is a Mastra agent pointed at Ollama's OpenAI-compatible endpoint. The model only picks from real candidate parks and a fixed clothing catalog, so it never invents coordinates or items.
 - `apps/server/src/outfit.ts` builds a baseline outfit from the Korean feels-like temperature chart; the model may adjust it, but rain, air quality, UV, and cold extras are always kept. It also offers one layer warmer and one layer lighter for people who run cold or warm.
-- `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. The step logic lives in `apps/server/src/recommend.ts`.
+- `apps/server/src/workflow.ts` runs each request as a Mastra workflow with four steps: gather conditions, ask Gemma for a JSON suggestion, check the answer with zod (falling back to simple rules if the model is unavailable or returns invalid output), and plan the walking route. While Gemma is thinking, one OSRM request fetches the round trip to every candidate park, so the route is usually ready by the time it's needed. The step logic lives in `apps/server/src/recommend.ts`.
 - `apps/web` renders the route with Leaflet + OpenStreetMap, and the outfit as a layered SVG avatar next to item cards.
 
 ## Credits

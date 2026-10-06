@@ -7,6 +7,7 @@ import {
   buildResponse,
   fallbackRecommendation,
   getConditions,
+  prefetchRoutes,
   sanitize,
   type Conditions,
   type RecommendResponse,
@@ -47,6 +48,7 @@ const askGemma = createStep({
   inputSchema: gathered,
   outputSchema: answered,
   execute: async ({ inputData, mastra }) => {
+    prefetchRoutes(inputData.origin, inputData.conditions);
     const agent = mastra?.getAgent('touchGrassAgent') ?? touchGrassAgent;
     return { ...inputData, modelRecommendation: await askModel(agent, inputData.conditions) };
   },
