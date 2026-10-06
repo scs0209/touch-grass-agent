@@ -1,0 +1,20 @@
+---
+description: Keep README.md in sync with the app after every change
+alwaysApply: true
+---
+
+# Keep the README in sync
+
+After any change to behavior, setup, environment variables, data sources, or the UI, check
+`README.md` against the change before reporting, and update it in the same task.
+
+- Text: the intro, "Run locally", "How it works", and "Credits" must describe what the code does now.
+  Verify claims against the code (versions, env var names only, radii, timeouts), not from memory.
+- Screenshots and the demo GIF in `docs/`: recapture them when the screen they show has changed.
+  Use headless Chrome at 430×860 with device scale 2 (860×1720 PNGs), and keep the alt text accurate.
+- Commit README changes with the change they describe, or as a `docs:` commit right after it, then push.
+- If the README is still accurate after a code change, record that you checked it:
+  `git rev-parse HEAD > .git/readme-checked`
+
+A `stop` hook (`.cursor/hooks/readme-check.mjs`) sends one reminder when files under `apps/`
+changed since the README was last checked and `README.md` wasn't touched.
