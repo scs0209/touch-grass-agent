@@ -107,9 +107,13 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const namedPark = nearbyParks.find((place) => recommendation.activity.includes(place.name));
   const placeId = placeExists ? recommendation.placeId : namedPark?.id;
   const stationExists = nearbyBikeStations?.some((station) => station.id === recommendation.bikeStationId);
+  // Small models write "None" or "N/A" instead of null when there is nothing to warn about.
+  const safetyNote = recommendation.safetyNote?.trim();
+  const hasSafetyNote = safetyNote && !/^(none|n\/a|null)\.?$/i.test(safetyNote);
 
   return {
     ...recommendation,
+    safetyNote: hasSafetyNote ? safetyNote : null,
     durationMin: Math.min(recommendation.durationMin, availableMinutes),
     placeId: recommendation.verdict === 'go' ? (placeId ?? null) : null,
     bikeStationId: stationExists ? recommendation.bikeStationId : null,
