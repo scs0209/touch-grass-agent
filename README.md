@@ -31,6 +31,8 @@ Set `SEOUL_OPEN_API_KEY` in `apps/server/.env` to include Ddareungi (Seoul publi
 
 Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one trace with the four workflow steps, the agent run, and the Gemma call, including latency and token usage. The traces include step inputs and outputs, so your location and the prompt leave your machine. Leave it empty and nothing is sent.
 
+<p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: gather-conditions, ask-gemma with the agent run and the Gemma call, check-answer, plan-route" width="800"></p>
+
 ## How it works
 
 - `apps/server/src/conditions/` fetches Open-Meteo weather and air quality, parks within walking range from Nominatim, walking routes from OSRM (all keyless), and Seoul bike stations.
