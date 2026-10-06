@@ -48,7 +48,7 @@ export function App() {
       <h1>Should I go out?</h1>
       <div className="choice-summary">
         <p className="muted small">{summarize(choice)}</p>
-        <button className="edit-choice" onClick={() => setEditingChoice(true)}>
+        <button className="edit-choice" onClick={() => setEditingChoice(true)} type="button">
           <span aria-hidden="true">✎</span> Edit answers
         </button>
       </div>
@@ -74,6 +74,7 @@ export function App() {
               key={minutes}
               className={minutes === availableMinutes ? 'chip active' : 'chip'}
               onClick={() => setAvailableMinutes(minutes)}
+              type="button"
             >
               {minutes} min
             </button>
@@ -81,7 +82,12 @@ export function App() {
         </div>
       </section>
 
-      <button className="primary" onClick={() => void recommendHere()} disabled={status.kind === 'loading'}>
+      <button
+        className="primary"
+        onClick={() => void recommendHere()}
+        disabled={status.kind === 'loading'}
+        type="button"
+      >
         Check right here
       </button>
 
