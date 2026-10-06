@@ -49,7 +49,7 @@ Set `SENTRY_DSN` to send traces to Sentry. Each request then shows up as one tra
 
 ## Agent sessions
 
-This app was built with Cursor agents. [Entire](https://entire.io) records each agent session and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here. Early sessions are mostly in Korean; since October 6, 2026 the agent answers in both English and Korean.
+This app was built with Cursor agents. [Entire](https://entire.io) records each agent session from Cursor, Claude Code, or Codex and links it to the commit it produced. The checkpoints go to a separate private repository, `scs0209/touch-grass-agent-checkpoints`, so transcripts stay private until reviewed while the code stays public here. Early sessions are mostly in Korean; since October 6, 2026 the agent answers in both English and Korean.
 
 The rules for agents live in one file, [AGENTS.md](AGENTS.md): keeping secrets out of sessions, English and Korean answers, English commit messages, fixing gaps before reporting, and keeping this README in sync. Cursor and Codex read it directly, and Claude Code reads it through `CLAUDE.md`.
 
@@ -57,7 +57,7 @@ To record and read sessions on another machine, sign in to GitHub with access to
 
 ```bash
 brew install --cask entireio/tap/entire
-entire enable --agent cursor   # installs the git hooks; the Cursor hooks are already in .cursor/hooks.json
+entire enable --agent cursor   # or claude-code, codex; installs the git hooks (agent hooks are already in the repo)
 entire checkpoint list         # fetches checkpoints from the private repository
 ```
 

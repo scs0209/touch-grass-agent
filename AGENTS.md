@@ -42,7 +42,8 @@ It is a pnpm monorepo: `apps/server` (Hono + Mastra, port 8787) and `apps/web` (
 7. **Optional: agent session records.** Sessions are recorded with Entire into a private repository
    (see "Agent sessions" in `README.md`). Only set this up if the user has access to
    `scs0209/touch-grass-agent-checkpoints`: `brew install --cask entireio/tap/entire`, then
-   `entire enable --agent cursor`.
+   `entire enable --agent cursor` (or `claude-code`, `codex`). The hooks for all three agents are
+   already in the repository; this installs the git hooks.
 
 ## Rules
 
