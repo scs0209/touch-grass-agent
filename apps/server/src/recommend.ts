@@ -321,7 +321,7 @@ function checkThingsToDo(items: string[] | null | undefined, park: Park | undefi
   );
   const checked = (items ?? [])
     .map((item) => item.trim().replace(/\.$/, ''))
-    .filter((item) => !/\bamenities\b/i.test(item))
+    .filter((item) => !/\b(amenities|facilities|features)\b/i.test(item))
     .filter((item) => item && !namesAPlace(item, conditions))
     .filter((item) => !missing.some((feature) => FEATURE_WORDS[feature].test(item)))
     .slice(0, MAX_THINGS_TO_DO);
