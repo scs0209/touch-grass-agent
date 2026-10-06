@@ -213,7 +213,11 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
             ✕
           </button>
         </div>
-        {phase === 'loading' && <p className="preview-status">Getting your walk ready…</p>}
+        {phase === 'loading' && (
+          <p className="preview-status shimmer" role="status">
+            Getting your walk ready…
+          </p>
+        )}
         {phase === 'error' && <p className="preview-status">Couldn't load the preview.</p>}
         {phase === 'blocked' && (
           <button className="preview-play" onClick={() => void play()}>

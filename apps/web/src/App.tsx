@@ -154,12 +154,12 @@ export function App() {
   return (
     <main className="screen">
       <h1>Should I go out?</h1>
-      <p className="muted small">
-        {summarize(choice)} ·{' '}
-        <button className="link" onClick={() => setEditingChoice(true)}>
-          Edit
+      <div className="choice-summary">
+        <p className="muted small">{summarize(choice)}</p>
+        <button className="edit-choice" onClick={() => setEditingChoice(true)}>
+          <span aria-hidden="true">✎</span> Edit answers
         </button>
-      </p>
+      </div>
 
       <section className="panel">
         <p className="muted">How much time do you have?</p>
@@ -198,7 +198,11 @@ export function App() {
         <button type="submit">Go</button>
       </form>
 
-      {status.kind === 'loading' && <p className="muted">{status.message}</p>}
+      {status.kind === 'loading' && (
+        <p className="muted shimmer" role="status">
+          {status.message}
+        </p>
+      )}
       {status.kind === 'error' && <p className="error">{status.message}</p>}
     </main>
   );

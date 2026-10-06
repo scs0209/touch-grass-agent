@@ -437,6 +437,50 @@ input,
   cursor: pointer;
 }
 
+.choice-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 10px 10px 14px;
+  border: var(--glass-border);
+  border-radius: var(--glass-radius);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.choice-summary p {
+  flex: 1 1 12rem;
+}
+
+.edit-choice {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #2f6b3a;
+  border-radius: 999px;
+  background: white;
+  color: #2f6b3a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.edit-choice:hover {
+  background: #2f6b3a;
+  color: white;
+}
+
+.edit-choice:focus-visible {
+  outline: 2px solid #2f6b3a;
+  outline-offset: 2px;
+}
 @media (prefers-reduced-transparency: reduce) {
   .panel,
   .city-form input {
@@ -554,4 +598,42 @@ input,
   flex: 1;
   text-align: center;
   text-decoration: none;
+}
+
+/* Kept last so the transparent text color wins over each element's own color. */
+.shimmer {
+  --shimmer-base: #4a5747;
+  --shimmer-highlight: #c3e6b9;
+}
+
+.preview-status.shimmer {
+  --shimmer-base: rgba(255, 255, 255, 0.65);
+  --shimmer-highlight: white;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .shimmer {
+      background: linear-gradient(
+          90deg,
+          var(--shimmer-base) 35%,
+          var(--shimmer-highlight) 50%,
+          var(--shimmer-base) 65%
+        )
+        0 0 / 250% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 1.8s linear infinite;
+    }
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
 }
