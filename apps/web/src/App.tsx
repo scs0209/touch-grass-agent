@@ -231,6 +231,13 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
+  const routeCaption =
+    route && place
+      ? `${(route.distanceM / 1000).toFixed(1)} km round trip to ${place.name} · about ${route.durationMin} min` +
+        (route.mode === 'bike'
+          ? ` (${route.rideMin} by bike from ${bikeStation?.name ?? 'the station'}, ${route.walkMin} on foot)`
+          : ' on foot')
+      : null;
 
   return (
     <main className={`screen result ${recommendation.verdict}`}>
@@ -270,15 +277,8 @@ function ResultCard({ result, onReset }: { result: RecommendResponse; onReset: (
 
       {isGo && destination && (
         <section className="panel">
-          <ResultMap origin={origin} place={place} route={route} bikeStation={bikeStation} />
-          {route && place && (
-            <p className="muted small">
-              {(route.distanceM / 1000).toFixed(1)} km round trip to {place.name} · about {route.durationMin} min
-              {route.mode === 'bike'
-                ? ` (${route.rideMin} by bike from ${bikeStation?.name ?? 'the station'}, ${route.walkMin} on foot)`
-                : ' on foot'}
-            </p>
-          )}
+          <ResultMap origin={origin} place={place} route={route} bikeStation={bikeStation} caption={routeCaption} />
+          {routeCaption && <p className="muted small">{routeCaption}</p>}
         </section>
       )}
 

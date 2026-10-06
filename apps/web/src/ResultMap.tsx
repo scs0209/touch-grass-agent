@@ -1,5 +1,7 @@
 import { divIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleMarker, MapContainer, Marker, Pane, Polyline, TileLayer, Tooltip } from 'react-leaflet';
 import type { Route } from './previewDraw';
 
@@ -35,7 +37,51 @@ function routeParts({ coordinates, rideRange }: NonNullable<ResultMapProps['rout
   ];
 }
 
-export function ResultMap({ origin, place, route, bikeStation }: ResultMapProps) {
+/** The map on the result card, with a button that opens it over the whole screen. */
+export function ResultMap({ caption, ...props }: ResultMapProps & { caption: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    closeRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [expanded]);
+
+  return (
+    <>
+      <div className="map-frame">
+        <RouteMap {...props} expanded={false} />
+        <button className="map-expand" onClick={() => setExpanded(true)} aria-label="Show the map full screen">
+          ⤢ Full map
+        </button>
+      </div>
+      {/* The card's backdrop-filter would trap a fixed overlay inside the card, so it renders on body. */}
+      {expanded &&
+        createPortal(
+          <div className="map-backdrop" role="dialog" aria-modal="true" aria-label={`Map to ${props.place?.name ?? 'your destination'}`}>
+            <RouteMap {...props} expanded />
+            <button ref={closeRef} className="map-close" onClick={() => setExpanded(false)} aria-label="Close the full map">
+              ✕
+            </button>
+            {caption && <p className="map-caption">{caption}</p>}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProps & { expanded: boolean }) {
   const originPoint: LatLngTuple = [origin.lat, origin.lon];
   const points: LatLngTuple[] = [
     originPoint,
@@ -47,12 +93,22 @@ export function ResultMap({ origin, place, route, bikeStation }: ResultMapProps)
       ? {
           bounds: points,
           // Extra top padding leaves room for the destination's permanent tooltip.
-          boundsOptions: { paddingTopLeft: [24, 48] as [number, number], paddingBottomRight: [24, 24] as [number, number] },
+          // The full map also keeps the route clear of the close button and the caption, and leaves
+          // room for the centered name tooltips at the sides.
+          boundsOptions: {
+            paddingTopLeft: (expanded ? [90, 80] : [24, 48]) as [number, number],
+            paddingBottomRight: (expanded ? [90, 120] : [24, 24]) as [number, number],
+          },
         }
       : { center: originPoint, zoom: DEFAULT_ZOOM };
 
   return (
-    <MapContainer className="map" scrollWheelZoom={false} {...viewport}>
+    <MapContainer
+      className={expanded ? 'map map-full' : 'map'}
+      scrollWheelZoom={expanded}
+      zoomSnap={expanded ? 0.25 : 1}
+      {...viewport}
+    >
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
