@@ -1,0 +1,37 @@
+---
+description: Find and fix gaps in your own work before reporting, without waiting to be asked
+alwaysApply: true
+---
+
+# Close gaps before reporting
+
+After you finish a change, look for gaps in your own work: limitations, cases that slip through,
+mismatches between the UI and the data, or results that don't follow what the user asked for.
+Fix them in the same session instead of only listing them in the final answer.
+
+## Loop
+
+1. Verify the change: typecheck, call the changed function directly with edge cases, and send real
+   requests to the running server (`POST localhost:8787/api/recommend`).
+2. Read the results critically. Ask: does each output fit the inputs and the user's choices?
+3. If you find a gap you can fix, fix it, verify it the same way, and commit it as its own commit.
+4. Repeat from step 2. Stop when no fixable gap is left, or after 3 rounds.
+
+## Fix on your own when
+
+- The gap is inside the scope of the current request.
+- The fix doesn't need a product or design decision, and you can verify it.
+
+Example: the user picked "with kids" but Gemma chose a park without a playground, while another
+candidate has one. Make the server switch to the matching park, test it, and commit.
+
+## Ask first (AskQuestion) when
+
+- The fix changes what the product does in a way the user hasn't chosen.
+- It adds an external service, cost, or new data leaving the machine.
+- It is destructive, rewrites pushed history, or touches secrets.
+
+## Report
+
+In the final answer, list what you fixed on your own and what is still left, with the reason it
+was left (needs a decision, can't be verified, or outside the request).
