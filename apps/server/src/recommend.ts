@@ -351,8 +351,10 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
   const park = matchingPark ?? modelPark;
   const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
-  // Small models romanize Korean park names into places that don't exist, so name the real one instead.
-  const garbledPark = park && !namedPark;
+  // Small models romanize Korean park names into places that don't exist, or leave stray syllables
+  // next to the real name ("Walk to 경 경찰기념공원"), so name the real one instead.
+  const strayHangul = namedPark !== undefined && HANGUL.test(recommendation.activity.replace(namedPark.name, ''));
+  const garbledPark = park && (!namedPark || strayHangul);
   const unwantedBike = !stationAllowed && /\b(bikes?|cycl\w*|ride)\b/i.test(recommendation.activity);
   const activity =
     recommendation.verdict === 'go' && !stationAllowed && (matchingPark || garbledPark || unwantedBike)
