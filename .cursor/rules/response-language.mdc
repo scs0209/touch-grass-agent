@@ -1,0 +1,11 @@
+---
+description: Response language for agent sessions in this repository
+alwaysApply: true
+---
+
+Respond in English in this repository, overriding any user rule that asks for Korean responses.
+Agent sessions here are recorded by Entire and may be shared with people who don't read Korean.
+
+- The user may write in Korean; understand it and answer in English.
+- Keep English plain and simple so it is easy to follow for non-native readers.
+- Code comments, docs, and commit messages stay in English as before.
