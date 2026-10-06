@@ -6,6 +6,18 @@ import { bearing, distanceM } from '../utils/geo';
 import { clamp01, FONT, wrapLines } from './canvas';
 import type { FlyoverMap, MapCamera, MapLook } from './flyoverMap';
 import { buildStory, pathThere, type Story } from './story';
+import {
+  drawChips,
+  drawReveal,
+  drawUnderline,
+  easeInCubic,
+  easeOutBack,
+  easeOutCubic,
+  linesHeight,
+  revealDuration,
+  type TitleStyle,
+  titleLines,
+} from './titles';
 
 export const FILM_WIDTH = 1080;
 export const FILM_HEIGHT = 1920;
@@ -13,6 +25,8 @@ export const FILM_HEIGHT = 1920;
 interface LoadedPhoto {
   photo: TripPhoto;
   image: HTMLCanvasElement;
+  /** A soft, darkened copy that fills the frame behind the photo. */
+  backdrop: HTMLCanvasElement;
 }
 
 /** Where the camera looks in a photo: zoom past the cover crop, and pan within the spare edges (-1 to 1). */
@@ -26,6 +40,7 @@ interface Caption {
   kicker?: string;
   title: string;
   sub?: string;
+  chips?: string[];
 }
 
 type MapShotKind = 'opening' | 'route' | 'arrival' | 'things' | 'ending';
@@ -40,24 +55,47 @@ interface MapShot {
   walker(progress: number): number | null;
 }
 
+type CardEntrance = 'pop' | 'slide' | 'rise';
+
 interface PhotoShot {
   view: 'photo';
   photo: TripPhoto;
   image: HTMLCanvasElement;
+  backdrop: HTMLCanvasElement;
   start: number;
   length: number;
+  /** Wide photos sit on a card, since filling a 9:16 frame would crop them down to a sliver. */
+  layout: 'full' | 'card';
+  entrance: CardEntrance;
+  /** Degrees the card leans. */
+  tilt: number;
   from: Framing;
   to: Framing;
 }
 
-type Shot = MapShot | PhotoShot;
+/** A thing to do without a photo of its own, shown with its number over a soft photo of the park. */
+interface NoteShot {
+  view: 'note';
+  backdrop: HTMLCanvasElement;
+  /** Notes often share one backdrop, so each drifts its own way and every other one is mirrored. */
+  from: Framing;
+  to: Framing;
+  mirrored: boolean;
+  number: number;
+  start: number;
+  length: number;
+}
+
+type Shot = MapShot | PhotoShot | NoteShot;
 
 interface CaptionSpan {
   caption: Caption;
   start: number;
   end: number;
-  /** Ending captions sit higher, clear of the end-screen buttons. */
-  placement: 'bottom' | 'center';
+  /** Over the map along the bottom; centered under a photo card or a number; or the end card. */
+  placement: 'bottom' | 'below' | 'end';
+  /** Where 'below' captions start. */
+  top?: number;
 }
 
 interface Track {
@@ -78,10 +116,51 @@ export interface Film {
 }
 
 /** Shot lengths in beats, so every cut lands on the music. */
-const SHOT_BEATS = { opening: 7, route: 14, arrival: 6, thing: 5, photo: 5, ending: 8 };
+const SHOT_BEATS = { opening: 7, route: 14, arrival: 6, thing: 5, ending: 8 };
+/** Photo and note shots stay up long enough to read their caption, within these beats. */
+const READ_BEATS = { min: 5, max: 8 };
+const PHOTO_ONLY_BEATS = 4;
+/** Reading speed for on-screen text, in characters per second. */
+const READ_CHARS_PER_SEC = 13;
 const MAX_PHOTOS = 4;
 const MAX_MAP_THINGS = 3;
 const FADE_SEC = 0.35;
+
+/** Photos wider than this go on a card instead of filling the frame. */
+const CARD_MIN_ASPECT = 0.8;
+/** Panoramas are cropped to this on the card, and the camera pans across the rest. */
+const CARD_MAX_ASPECT = 1.5;
+const CARD_MAX_WIDTH = FILM_WIDTH - 160;
+const CARD_MAX_HEIGHT = 1000;
+const CARD_CENTER_Y = FILM_HEIGHT * 0.4;
+const CARD_IN_SEC = 0.55;
+const CARD_OUT_SEC = 0.3;
+const CARD_ENTRANCES: CardEntrance[] = ['pop', 'slide', 'rise'];
+/** Camera moves inside a photo, taken in turn so no two photos in a row move alike. */
+const PHOTO_MOVES: [Framing, Framing][] = [
+  [
+    { scale: 1, x: 0, y: 0 },
+    { scale: 1.12, x: 0, y: 0 },
+  ],
+  [
+    { scale: 1.1, x: -0.8, y: 0 },
+    { scale: 1.1, x: 0.8, y: 0 },
+  ],
+  [
+    { scale: 1.14, x: 0, y: 0.3 },
+    { scale: 1.02, x: 0, y: 0 },
+  ],
+  [
+    { scale: 1.1, x: 0.8, y: 0 },
+    { scale: 1.1, x: -0.8, y: 0 },
+  ],
+];
+const NOTE_BADGE_Y = 720;
+const NOTE_BADGE_RADIUS = 96;
+
+const BOTTOM_TITLE: TitleStyle = { kicker: 30, title: 72, sub: 36, maxWidth: FILM_WIDTH - 160, titleLines: 3 };
+const BELOW_TITLE: TitleStyle = { kicker: 30, title: 64, sub: 34, maxWidth: FILM_WIDTH - 200, titleLines: 3 };
+const END_TITLE: TitleStyle = { kicker: 30, title: 92, sub: 36, maxWidth: FILM_WIDTH - 160, titleLines: 2 };
 /** A photo still loading after this is left out; the server itself gives up on a source after 7 seconds. */
 const PHOTO_WAIT_MS = 9000;
 /** Past this the film goes ahead without photos of the park. */
@@ -274,6 +353,70 @@ function grade(image: HTMLImageElement, input: StoryInput) {
   return canvas;
 }
 
+/** Averages each pixel with its eight neighbors; layering at 1/n opacity keeps an equal share for each copy. */
+function softenPixels(canvas: HTMLCanvasElement) {
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  copy.getContext('2d')!.drawImage(canvas, 0, 0);
+  const ctx = canvas.getContext('2d')!;
+  let drawn = 0;
+  for (const dx of [0, -1, 1]) {
+    for (const dy of [0, -1, 1]) {
+      drawn += 1;
+      ctx.globalAlpha = 1 / drawn;
+      ctx.drawImage(copy, dx, dy);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * The photo shrunk to a few pixels and scaled back up, which blurs it the same in every browser
+ * (canvas filters aren't everywhere), then darkened so a card or text stands out on it.
+ * Scaling up alone leaves a grid of soft squares, so the smallest steps are averaged with their
+ * neighbors first, and each step at most doubles the size.
+ */
+function backdropOf(image: HTMLCanvasElement) {
+  const steps = [
+    [45, 80],
+    [90, 160],
+    [180, 320],
+    [360, 640],
+    [720, 1280],
+  ];
+  let source: CanvasImageSource = image;
+  let sourceWidth = image.width;
+  let sourceHeight = image.height;
+  let canvas = document.createElement('canvas');
+  for (const [width, height] of steps) {
+    canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingQuality = 'high';
+    const cover = Math.max(width / sourceWidth, height / sourceHeight);
+    ctx.drawImage(
+      source,
+      (width - sourceWidth * cover) / 2,
+      (height - sourceHeight * cover) / 2,
+      sourceWidth * cover,
+      sourceHeight * cover,
+    );
+    if (width <= 180) {
+      softenPixels(canvas);
+      softenPixels(canvas);
+    }
+    source = canvas;
+    sourceWidth = width;
+    sourceHeight = height;
+  }
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = 'rgba(8, 12, 18, 0.45)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
 async function loadPhoto(photo: TripPhoto, input: StoryInput, signal: AbortSignal): Promise<LoadedPhoto> {
   signal.throwIfAborted();
   const image = new Image();
@@ -285,7 +428,8 @@ async function loadPhoto(photo: TripPhoto, input: StoryInput, signal: AbortSigna
     signal.addEventListener('abort', () => reject(new Error('Stopped')), { once: true }),
   );
   await Promise.race([image.decode(), tooSlow, stopped]);
-  return { photo, image: grade(image, input) };
+  const graded = grade(image, input);
+  return { photo, image: graded, backdrop: backdropOf(graded) };
 }
 
 /** Real photos of the park, the one at its edge first; empty when there are none. */
@@ -333,6 +477,24 @@ export async function loadFilm(input: StoryInput, bpm: number, signal: AbortSign
 }
 
 // ---------- the cut ----------
+
+/** Enough beats to read the caption once it has come in, so shots vary in length with what they say. */
+function readingBeats(text: Caption, beat: number) {
+  const chars = `${text.title} ${text.sub ?? ''}`.trim().length;
+  const seconds = CARD_IN_SEC + chars / READ_CHARS_PER_SEC;
+  return Math.min(READ_BEATS.max, Math.max(READ_BEATS.min, Math.ceil(seconds / beat)));
+}
+
+function cardRect(image: HTMLCanvasElement) {
+  const aspect = Math.min(image.width / image.height, CARD_MAX_ASPECT);
+  let width = CARD_MAX_WIDTH;
+  let height = width / aspect;
+  if (height > CARD_MAX_HEIGHT) {
+    height = CARD_MAX_HEIGHT;
+    width = height * aspect;
+  }
+  return { x: (FILM_WIDTH - width) / 2, y: CARD_CENTER_Y - height / 2, width, height };
+}
 
 function walkCaption(input: StoryInput): Caption {
   const byBike = input.bikeStation !== null;
@@ -416,30 +578,82 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   caption(arrival, { kicker: "You've arrived", title: input.placeName });
 
   if (photos.length > 0) {
-    photos.forEach(({ photo, image }, i) => {
-      const pan = i % 2 ? -0.7 : 0.7;
+    const things = input.things.slice(0, Math.max(photos.length, MAX_MAP_THINGS));
+    // Photos beyond the things to do name the park once, then play shorter without words rather than repeat it.
+    const thingCaption = (i: number): Caption => ({
+      kicker: `Once you're there · ${i + 1}/${things.length}`,
+      title: things[i].text,
+    });
+    const photoCaption = (i: number): Caption | null => {
+      if (i < things.length) return thingCaption(i);
+      return i === things.length ? { kicker: "Once you're there", title: input.placeName } : null;
+    };
+    // Three shots of the same length in a row start to feel like a slideshow.
+    const used: number[] = [];
+    const shotLength = (text: Caption | null) => {
+      const beats = text ? readingBeats(text, beat) : PHOTO_ONLY_BEATS;
+      const varied = used.length >= 2 && used.slice(-2).every((last) => last === beats) ? beats + 1 : beats;
+      used.push(varied);
+      return varied * beat;
+    };
+
+    photos.forEach(({ photo, image, backdrop }, i) => {
+      const text = photoCaption(i);
+      const [from, to] = PHOTO_MOVES[i % PHOTO_MOVES.length];
       const shot: PhotoShot = {
         view: 'photo',
         photo,
         image,
+        backdrop,
         start,
-        length: SHOT_BEATS.photo * beat,
-        from: { scale: 1.1, x: -pan, y: 0 },
-        to: { scale: 1.12, x: pan, y: 0 },
+        length: shotLength(text),
+        layout: image.width / image.height > CARD_MIN_ASPECT ? 'card' : 'full',
+        entrance: CARD_ENTRANCES[i % CARD_ENTRANCES.length],
+        tilt: i % 2 ? -1.2 : 1.2,
+        from,
+        to,
       };
       shots.push(shot);
       start += shot.length;
-      const thing = input.things[i];
-      caption(
-        shot,
-        thing
-          ? {
-              kicker: `Once you're there · ${i + 1}/${Math.min(input.things.length, photos.length)}`,
-              title: thing.text,
-            }
-          : { kicker: "Once you're there", title: input.placeName },
-      );
+      if (!text) return;
+      if (shot.layout === 'card') {
+        const rect = cardRect(image);
+        captions.push({
+          caption: text,
+          start: shot.start,
+          end: start,
+          placement: 'below',
+          top: rect.y + rect.height + 64,
+        });
+      } else {
+        caption(shot, text);
+      }
     });
+
+    // Things to do beyond the photos still get their moment, each with its number.
+    for (let i = photos.length; i < things.length; i++) {
+      const text = thingCaption(i);
+      const [from, to] = PHOTO_MOVES[i % PHOTO_MOVES.length];
+      const shot: NoteShot = {
+        view: 'note',
+        backdrop: photos[i % photos.length].backdrop,
+        from: { ...from, scale: from.scale + 0.08 },
+        to: { ...to, scale: to.scale + 0.08 },
+        mirrored: i % 2 === 1,
+        number: i + 1,
+        start,
+        length: shotLength(text),
+      };
+      shots.push(shot);
+      start += shot.length;
+      captions.push({
+        caption: text,
+        start: shot.start,
+        end: start,
+        placement: 'below',
+        top: NOTE_BADGE_Y + NOTE_BADGE_RADIUS + 80,
+      });
+    }
   } else {
     // No photos: keep circling the park while the things to do come up one by one.
     const things = input.things.slice(0, MAX_MAP_THINGS);
@@ -473,9 +687,9 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
     ending,
     {
       title: 'Ready when you are.',
-      sub: `Leave now · back by ${story.backBy}${story.sunsetAt ? ` · sunset ${story.sunsetAt}` : ''}`,
+      chips: ['Leave now', `Back by ${story.backBy}`, ...(story.sunsetAt ? [`Sunset ${story.sunsetAt}`] : [])],
     },
-    'center',
+    'end',
   );
 
   return {
@@ -501,25 +715,142 @@ function handheld(t: number) {
   };
 }
 
-function drawPhotoShot(ctx: CanvasRenderingContext2D, shot: PhotoShot, progress: number, t: number, still: boolean) {
-  const { image } = shot;
-  const p = easeInOutSine(clamp01(still ? 0.5 : progress));
-  const view = {
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Fills `rect` with the image like CSS `cover`, zoomed and panned within the spare edges by `view`. */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource & { width: number; height: number },
+  rect: Rect,
+  view: Framing,
+) {
+  const cover = Math.max(rect.width / image.width, rect.height / image.height) * view.scale;
+  const width = image.width * cover;
+  const height = image.height * cover;
+  const spareX = (width - rect.width) / 2;
+  const spareY = (height - rect.height) / 2;
+  ctx.drawImage(
+    image,
+    rect.x + (rect.width - width) / 2 + spareX * view.x * 0.9,
+    rect.y + (rect.height - height) / 2 + spareY * view.y * 0.9,
+    width,
+    height,
+  );
+}
+
+const FRAME: Rect = { x: 0, y: 0, width: FILM_WIDTH, height: FILM_HEIGHT };
+
+/** The soft copy of a photo, drifting slowly closer behind whatever sits on it. */
+function drawBackdrop(ctx: CanvasRenderingContext2D, backdrop: HTMLCanvasElement, progress: number) {
+  drawCover(ctx, backdrop, FRAME, { scale: lerp(1.04, 1.12, progress), x: 0, y: 0 });
+}
+
+function framingAt(shot: { from: Framing; to: Framing }, progress: number): Framing {
+  const p = easeInOutSine(progress);
+  return {
     scale: lerp(shot.from.scale, shot.to.scale, p),
     x: lerp(shot.from.x, shot.to.x, p),
     y: lerp(shot.from.y, shot.to.y, p),
   };
-  const cover = Math.max(FILM_WIDTH / image.width, FILM_HEIGHT / image.height) * view.scale;
-  const width = image.width * cover;
-  const height = image.height * cover;
-  const spareX = (width - FILM_WIDTH) / 2;
-  const spareY = (height - FILM_HEIGHT) / 2;
+}
+
+/** How a card comes in during the first moments of its shot; it settles exactly at its resting place. */
+function cardEntrance(entrance: CardEntrance, shown: number, tilt: number) {
+  const eased = easeOutCubic(shown);
+  if (entrance === 'pop') return { x: 0, y: 0, scale: lerp(0.84, 1, easeOutBack(shown)), rotate: tilt };
+  if (entrance === 'slide')
+    return { x: Math.sign(tilt) * 180 * (1 - eased), y: 0, scale: 1, rotate: tilt * (1 + 3 * (1 - eased)) };
+  return { x: 0, y: 160 * (1 - eased), scale: lerp(0.94, 1, eased), rotate: tilt };
+}
+
+function drawPhotoShot(ctx: CanvasRenderingContext2D, shot: PhotoShot, progress: number, t: number, still: boolean) {
+  const p = clamp01(still ? 0.5 : progress);
   const sway = still ? { x: 0, y: 0, rotate: 0 } : handheld(t);
+  if (shot.layout === 'full') {
+    ctx.save();
+    ctx.translate(FILM_WIDTH / 2 + sway.x, FILM_HEIGHT / 2 + sway.y);
+    ctx.rotate(sway.rotate);
+    ctx.translate(-FILM_WIDTH / 2, -FILM_HEIGHT / 2);
+    drawCover(ctx, shot.image, FRAME, framingAt(shot, p));
+    ctx.restore();
+    return;
+  }
+
+  drawBackdrop(ctx, shot.backdrop, p);
+  // The card waits for the crossfade into this shot, then comes in on the beat.
+  const shown = still ? 1 : clamp01((t - shot.start) / CARD_IN_SEC);
+  const leaving = still ? 1 : clamp01((shot.start + shot.length - t) / CARD_OUT_SEC);
+  if (shown <= 0) return;
+  const move = cardEntrance(shot.entrance, shown, shot.tilt);
+  const rect = cardRect(shot.image);
+  const scale = move.scale * lerp(0.96, 1, leaving);
 
   ctx.save();
-  ctx.translate(FILM_WIDTH / 2 + sway.x, FILM_HEIGHT / 2 + sway.y);
-  ctx.rotate(sway.rotate);
-  ctx.drawImage(image, -width / 2 + spareX * view.x * 0.9, -height / 2 + spareY * view.y * 0.9, width, height);
+  ctx.globalAlpha *= easeOutCubic(shown) * (1 - easeInCubic(1 - leaving));
+  ctx.translate(FILM_WIDTH / 2 + move.x + sway.x * 0.6, CARD_CENTER_Y + move.y + sway.y * 0.6);
+  ctx.rotate((move.rotate * Math.PI) / 180 + sway.rotate);
+  ctx.scale(scale, scale);
+  const card: Rect = { x: -rect.width / 2, y: -rect.height / 2, width: rect.width, height: rect.height };
+  const border = 10;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.shadowBlur = 50;
+  ctx.shadowOffsetY = 22;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.beginPath();
+  ctx.roundRect(card.x - border, card.y - border, card.width + border * 2, card.height + border * 2, 34);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.roundRect(card.x, card.y, card.width, card.height, 26);
+  ctx.clip();
+  drawCover(ctx, shot.image, card, framingAt(shot, p));
+  ctx.restore();
+}
+
+function drawNoteShot(ctx: CanvasRenderingContext2D, shot: NoteShot, progress: number, t: number, still: boolean) {
+  ctx.save();
+  if (shot.mirrored) {
+    ctx.translate(FILM_WIDTH, 0);
+    ctx.scale(-1, 1);
+  }
+  drawCover(ctx, shot.backdrop, FRAME, framingAt(shot, clamp01(still ? 0.5 : progress)));
+  ctx.restore();
+  const shown = still ? 1 : clamp01((t - shot.start) / CARD_IN_SEC);
+  if (shown <= 0) return;
+  const at = { x: FILM_WIDTH / 2, y: NOTE_BADGE_Y };
+
+  ctx.save();
+  // One ring spreads out as the number lands.
+  const ring = still ? 1 : clamp01((t - shot.start) / 1.1);
+  if (ring < 1) {
+    ctx.strokeStyle = `rgba(52, 199, 89, ${0.6 * (1 - ring)})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(at.x, at.y, NOTE_BADGE_RADIUS * (1 + 0.9 * easeOutCubic(ring)), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const scale = lerp(0.6, 1, easeOutBack(shown));
+  ctx.globalAlpha *= easeOutCubic(shown);
+  ctx.translate(at.x, at.y);
+  ctx.scale(scale, scale);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 10;
+  ctx.fillStyle = GREEN;
+  ctx.beginPath();
+  ctx.arc(0, 0, NOTE_BADGE_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = 'white';
+  ctx.font = `800 108px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(shot.number), 0, 6);
   ctx.restore();
 }
 
@@ -685,69 +1016,67 @@ function drawLight(ctx: CanvasRenderingContext2D, story: Story) {
   ctx.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT);
 }
 
-interface Line {
-  text: string;
-  size: number;
-  weight: number;
-  alpha: number;
-  gapAfter: number;
-}
+const TITLE_STYLE: Record<CaptionSpan['placement'], TitleStyle> = {
+  bottom: BOTTOM_TITLE,
+  below: BELOW_TITLE,
+  end: END_TITLE,
+};
 
-function captionLines(ctx: CanvasRenderingContext2D, caption: Caption): Line[] {
-  const maxWidth = FILM_WIDTH - 160;
-  const lines: Line[] = [];
-  const add = (text: string, size: number, weight: number, alpha: number, maxLines: number, gapAfter: number) => {
-    ctx.font = `${weight} ${size}px ${FONT}`;
-    const wrapped = wrapLines(ctx, text, maxWidth).slice(0, maxLines);
-    wrapped.forEach((part, i) =>
-      lines.push({ text: part, size, weight, alpha, gapAfter: i === wrapped.length - 1 ? gapAfter : size * 0.18 }),
-    );
-  };
-  if (caption.kicker) add(caption.kicker.toUpperCase(), 30, 600, 0.82, 1, 18);
-  add(caption.title, 72, 700, 1, 3, 20);
-  if (caption.sub) add(caption.sub, 36, 500, 0.9, 2, 0);
-  return lines;
-}
-
-function drawCaption(ctx: CanvasRenderingContext2D, span: CaptionSpan, t: number, still: boolean) {
-  const fadeIn = still ? 1 : clamp01((t - span.start - 0.15) / 0.5);
-  const fadeOut = still ? 1 : clamp01((span.end - t) / 0.35);
-  const alpha = Math.min(fadeIn, fadeOut);
-  if (alpha <= 0) return;
-
-  const lines = captionLines(ctx, span.caption);
-  const height = lines.reduce((sum, line) => sum + line.size + line.gapAfter, 0);
-  const rise = (1 - easeInOutSine(fadeIn)) * 24;
-  let y = (span.placement === 'center' ? FILM_HEIGHT * 0.36 - height / 2 : FILM_HEIGHT - 260 - height) + rise;
-
-  if (span.placement === 'bottom') {
-    const scrim = ctx.createLinearGradient(0, FILM_HEIGHT - 300 - height - 200, 0, FILM_HEIGHT);
+/** Shading that keeps white text readable over a bright map or photo, strongest where the text is. */
+function drawScrim(ctx: CanvasRenderingContext2D, placement: CaptionSpan['placement'], height: number, alpha: number) {
+  if (placement === 'bottom') {
+    const top = FILM_HEIGHT - 500 - height;
+    const scrim = ctx.createLinearGradient(0, top, 0, FILM_HEIGHT);
     scrim.addColorStop(0, 'rgba(0, 0, 0, 0)');
     scrim.addColorStop(1, `rgba(0, 0, 0, ${0.62 * alpha})`);
     ctx.fillStyle = scrim;
-    ctx.fillRect(0, FILM_HEIGHT - 300 - height - 200, FILM_WIDTH, 500 + height);
-  } else {
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.35 * alpha})`;
-    ctx.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT);
+    ctx.fillRect(0, top, FILM_WIDTH, FILM_HEIGHT - top);
+  } else if (placement === 'end') {
+    // Darkens the sky above the title but leaves the neighborhood below it in view.
+    const scrim = ctx.createLinearGradient(0, 0, 0, FILM_HEIGHT * 0.62);
+    scrim.addColorStop(0, `rgba(0, 0, 0, ${0.6 * alpha})`);
+    scrim.addColorStop(0.55, `rgba(0, 0, 0, ${0.38 * alpha})`);
+    scrim.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT * 0.62);
+  }
+}
+
+function drawCaption(ctx: CanvasRenderingContext2D, span: CaptionSpan, t: number, still: boolean) {
+  // The opening title is readable on the first frame, before anyone scrolls past.
+  const delay = span.start === 0 ? -0.6 : 0.1;
+  const elapsed = still ? 99 : t - span.start - delay;
+  const fadeIn = still ? 1 : clamp01(elapsed / 0.3);
+  const fadeOut = still ? 1 : 1 - easeInCubic(1 - clamp01((span.end - t) / 0.35));
+  const alpha = Math.min(fadeIn, fadeOut);
+  if (alpha <= 0) return;
+
+  const lines = titleLines(ctx, span.caption, TITLE_STYLE[span.placement]);
+  const height = linesHeight(lines);
+  drawScrim(ctx, span.placement, height, alpha);
+
+  if (span.placement === 'bottom') {
+    drawReveal(ctx, lines, { x: 80, y: FILM_HEIGHT - 260 - height, align: 'left' }, elapsed, fadeOut);
+    return;
+  }
+  if (span.placement === 'below') {
+    drawReveal(ctx, lines, { x: FILM_WIDTH / 2, y: span.top ?? FILM_HEIGHT * 0.6, align: 'center' }, elapsed, fadeOut);
+    return;
   }
 
-  ctx.save();
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 2;
-  for (const line of lines) {
-    ctx.font = `${line.weight} ${line.size}px ${FONT}`;
-    ctx.fillStyle = `rgba(255, 255, 255, ${line.alpha * alpha})`;
-    ctx.fillText(line.text, 80, y);
-    y += line.size + line.gapAfter;
-  }
-  ctx.restore();
+  // The end card: the title, a line drawn under it, then when to go and be back.
+  const top = FILM_HEIGHT * 0.33 - height / 2;
+  drawReveal(ctx, lines, { x: FILM_WIDTH / 2, y: top, align: 'center' }, elapsed, fadeOut);
+  const settled = elapsed - revealDuration(lines);
+  const lineY = top + height + 30;
+  drawUnderline(ctx, { x: FILM_WIDTH / 2, y: lineY }, 420, settled + 0.15, fadeOut, GREEN);
+  if (span.caption.chips)
+    drawChips(ctx, span.caption.chips, { x: FILM_WIDTH / 2, y: lineY + 90 }, settled + 0.35, fadeOut);
 }
 
 function sourceLabel(shot: Shot) {
   if (shot.view === 'map') return MAP_CREDIT;
+  if (shot.view === 'note') return null;
   const year = shot.photo.capturedAt?.match(/\d{4}/)?.[0];
   return `${shot.photo.source === 'mapillary' ? 'Mapillary' : 'Wikimedia Commons'}${year ? ` · ${year}` : ''}`;
 }
@@ -798,7 +1127,8 @@ function drawProgress(ctx: CanvasRenderingContext2D, progress: number) {
 function drawShot(ctx: CanvasRenderingContext2D, film: Film, shot: Shot, t: number, still: boolean) {
   const progress = (t - shot.start) / shot.length;
   if (shot.view === 'map') drawMapShot(ctx, film, shot, progress, t, still);
-  else drawPhotoShot(ctx, shot, progress, t, still);
+  else if (shot.view === 'photo') drawPhotoShot(ctx, shot, progress, t, still);
+  else drawNoteShot(ctx, shot, progress, t, still);
 }
 
 export function drawFilmFrame(ctx: CanvasRenderingContext2D, film: Film, t: number, still: boolean) {
@@ -807,8 +1137,8 @@ export function drawFilmFrame(ctx: CanvasRenderingContext2D, film: Film, t: numb
   const shot = film.shots[index];
   const next = film.shots[index + 1];
   const end = shot.start + shot.length;
-  // Map shots flow into each other as one camera move; cuts to and from photos crossfade.
-  const fade = next && (shot.view === 'photo' || next.view === 'photo') ? Math.min(FADE_SEC, shot.length * 0.3) : 0;
+  // Map shots flow into each other as one camera move; cuts to and from photos and notes crossfade.
+  const fade = next && (shot.view !== 'map' || next.view !== 'map') ? Math.min(FADE_SEC, shot.length * 0.3) : 0;
   const fading = !still && fade > 0 && t > end - fade;
 
   ctx.save();
@@ -822,7 +1152,8 @@ export function drawFilmFrame(ctx: CanvasRenderingContext2D, film: Film, t: numb
   }
   drawLight(ctx, film.story);
 
-  drawSourceTag(ctx, sourceLabel(fading ? next : shot));
+  const source = sourceLabel(fading ? next : shot);
+  if (source) drawSourceTag(ctx, source);
   for (const span of film.captions) {
     if (t >= span.start && t <= span.end) drawCaption(ctx, span, t, still);
   }
