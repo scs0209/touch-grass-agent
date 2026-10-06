@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { OLLAMA_MODEL } from './agent.js';
-import { recommend } from './recommend.js';
+import { recommend } from './mastra.js';
 import { recommendRequestSchema } from './schema.js';
 
 const app = new Hono();

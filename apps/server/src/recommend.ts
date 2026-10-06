@@ -1,4 +1,4 @@
-import { touchGrassAgent } from './agent.js';
+import type { Agent } from '@mastra/core/agent';
 import { getAirQuality, type AirQuality } from './conditions/airQuality.js';
 import { getNearbyBikeStations, type BikeStation } from './conditions/bikes.js';
 import { getNearbyParks, walkableRadiusM, type Place } from './conditions/places.js';
@@ -6,9 +6,9 @@ import { getRoundTripWalk, type Route } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
 import type { LatLon } from './geo.js';
 import { baselineOutfit, outfitOptions, withRequiredExtras, type Outfit } from './outfit.js';
-import { recommendationSchema, type Recommendation, type RecommendRequest } from './schema.js';
+import { recommendationSchema, type Recommendation } from './schema.js';
 
-interface Conditions {
+export interface Conditions {
   availableMinutes: number;
   weather: Weather;
   airQuality: AirQuality;
@@ -26,7 +26,7 @@ function optional<T>(promise: Promise<T>, label: string, fallback: T) {
   });
 }
 
-async function getConditions(origin: LatLon, availableMinutes: number): Promise<Conditions> {
+export async function getConditions(origin: LatLon, availableMinutes: number): Promise<Conditions> {
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
@@ -64,7 +64,7 @@ function isUnsafeOutside({ weather, airQuality }: Conditions) {
   );
 }
 
-function fallbackRecommendation(conditions: Conditions): Recommendation {
+export function fallbackRecommendation(conditions: Conditions): Recommendation {
   const { weather, airQuality, availableMinutes, nearbyBikeStations, nearbyParks } = conditions;
   const summary = `${weather.temperatureC}°C, ${weather.description}, air quality ${airQuality.level}`;
   // Parks are sorted by distance and all fit the time budget, so the farthest uses the time best.
@@ -100,7 +100,7 @@ function fallbackRecommendation(conditions: Conditions): Recommendation {
   };
 }
 
-function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
+export function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
   const { nearbyBikeStations, nearbyParks, availableMinutes, weather, airQuality } = conditions;
   const placeExists = nearbyParks.some((place) => place.id === recommendation.placeId);
   // The model sometimes names a park in the activity but leaves placeId empty.
@@ -119,12 +119,12 @@ function sanitize(recommendation: Recommendation, conditions: Conditions): Recom
   };
 }
 
-async function askModel(conditions: Conditions): Promise<Recommendation | null> {
+export async function askModel(agent: Agent, conditions: Conditions): Promise<Recommendation | null> {
   const prompt = `Current conditions:\n${JSON.stringify(conditions, null, 2)}`;
 
   for (let attempt = 1; attempt <= MODEL_ATTEMPTS; attempt++) {
     try {
-      const result = await touchGrassAgent.generate(prompt);
+      const result = await agent.generate(prompt);
       const recommendation = parseModelOutput(result.text);
       if (recommendation) return recommendation;
       console.warn(`Model returned invalid JSON (attempt ${attempt}):`, result.text);
@@ -135,14 +135,11 @@ async function askModel(conditions: Conditions): Promise<Recommendation | null> 
   return null;
 }
 
-export async function recommend({ lat, lon, availableMinutes }: RecommendRequest) {
-  const origin = { lat, lon };
-  const conditions = await getConditions(origin, availableMinutes);
-  const modelRecommendation = await askModel(conditions);
-  const { outfit, placeId, bikeStationId, ...recommendation } = sanitize(
-    modelRecommendation ?? fallbackRecommendation(conditions),
-    conditions,
-  );
+export type Source = 'model' | 'fallback';
+
+export async function buildResponse(origin: LatLon, conditions: Conditions, checked: Recommendation, source: Source) {
+  const { availableMinutes } = conditions;
+  const { outfit, placeId, bikeStationId, ...recommendation } = checked;
 
   const place = conditions.nearbyParks.find((park) => park.id === placeId);
   const bikeStation = conditions.nearbyBikeStations?.find((station) => station.id === bikeStationId);
@@ -161,7 +158,7 @@ export async function recommend({ lat, lon, availableMinutes }: RecommendRequest
     bikeStation: bikeStation
       ? { name: bikeStation.name, lat: bikeStation.lat, lon: bikeStation.lon, bikesAvailable: bikeStation.bikesAvailable }
       : null,
-    source: modelRecommendation ? 'model' : 'fallback',
+    source,
     conditions: {
       temperatureC: conditions.weather.temperatureC,
       feelsLikeC: conditions.weather.feelsLikeC,
@@ -173,3 +170,5 @@ export async function recommend({ lat, lon, availableMinutes }: RecommendRequest
     },
   };
 }
+
+export type RecommendResponse = Awaited<ReturnType<typeof buildResponse>>;
