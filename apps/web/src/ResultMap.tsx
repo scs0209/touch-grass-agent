@@ -31,6 +31,17 @@ const FULL_MAP_PADDING: FitBoundsOptions = { paddingTopLeft: [90, 80], paddingBo
 /** Sits just above the station so a station next to "You are here" doesn't hide it. */
 const bikeIcon = divIcon({ className: 'bike-marker', html: '🚲', iconSize: [28, 28], iconAnchor: [14, 34] });
 
+/** Bounds fitting puts the station near the map's edge on the side away from the park, so its name faces the park. */
+const STATION_LABEL = {
+  left: { direction: 'left', offset: [-12, -20] },
+  right: { direction: 'right', offset: [12, -20] },
+} as const;
+
+function stationLabel(station: Point, place: Point | null) {
+  if (place && station.lon > place.lon) return STATION_LABEL.left;
+  return STATION_LABEL.right;
+}
+
 /** On a bike trip the walks to and from the station are dashed and the ride is solid. */
 function routeParts({ coordinates, rideRange }: NonNullable<ResultMapProps['route']>) {
   if (!rideRange) return [{ positions: coordinates, walking: false }];
@@ -146,7 +157,7 @@ function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProp
       )}
       {bikeStation && (
         <Marker position={[bikeStation.lat, bikeStation.lon]} icon={bikeIcon}>
-          <Tooltip permanent direction="right" offset={[12, -20]}>
+          <Tooltip permanent {...stationLabel(bikeStation, place)}>
             {bikeStation.name}
           </Tooltip>
         </Marker>
