@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { Questionnaire } from './components/Questionnaire';
 import { ResultCard } from './components/ResultCard';
 import { useRecommendation } from './hooks/useRecommendation';
@@ -20,7 +20,7 @@ export function App() {
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
   const { status, recommendHere, recommendInCity, reset } = useRecommendation(availableMinutes, preferences);
 
-  function handleCitySubmit(event: FormEvent) {
+  function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
     if (!city.trim()) return;
     void recommendInCity(city);
