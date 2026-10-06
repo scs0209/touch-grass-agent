@@ -20,9 +20,6 @@ export function App() {
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
   const { status, recommendHere, recommendInCity, reset } = useRecommendation(availableMinutes, preferences);
 
-
-  
-
   function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
     if (!city.trim()) return;
