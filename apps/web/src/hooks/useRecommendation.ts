@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { messages } from '../i18n';
 import { fetchRecommendation } from '../services/api';
 import { geocodeCity, getCurrentPosition, locationErrorMessage } from '../services/location';
 import type { PlaceKind, PlaceSearch, RecommendResponse } from '../types/api';
@@ -6,6 +7,7 @@ import type { Visit } from '../types/explore';
 import type { RecentPlace, SearchOrigin } from '../types/places';
 import type { Preferences } from '../types/preferences';
 import { exploredNear } from '../utils/explore';
+import { HERE_LABEL, originLabel } from '../utils/places';
 
 /** One search from a starting point, and the places suggested from it so far. */
 export interface PlaceSession {
@@ -27,8 +29,6 @@ export type RecommendStatus =
       notice: string | null;
     }
   | { kind: 'error'; message: string };
-
-const HERE_LABEL = 'your location';
 
 /**
  * Finds where the person is (or looks up a city), asks the server for a suggestion, and can then ask for another
@@ -62,12 +62,8 @@ export function useRecommendation(
   }
 
   async function start(origin: SearchOrigin, search: PlaceSearch = {}) {
-    setStatus({
-      kind: 'loading',
-      message: preferences?.cycling
-        ? 'Checking the sky, the air, and nearby bikes…'
-        : 'Checking the sky, the air, and nearby places…',
-    });
+    const t = messages().loading;
+    setStatus({ kind: 'loading', message: preferences?.cycling ? t.checkingBikes : t.checkingPlaces });
     try {
       const result = await fetchRecommendation(origin, availableMinutes, preferences, {
         ...search,
@@ -81,7 +77,7 @@ export function useRecommendation(
   }
 
   async function recommendHere() {
-    setStatus({ kind: 'loading', message: 'Finding where you are…' });
+    setStatus({ kind: 'loading', message: messages().loading.locating });
     try {
       const { coords } = await getCurrentPosition();
       await start({ lat: coords.latitude, lon: coords.longitude, label: HERE_LABEL, city: null });
@@ -91,7 +87,7 @@ export function useRecommendation(
   }
 
   async function recommendInCity(city: string) {
-    setStatus({ kind: 'loading', message: `Looking up ${city}…` });
+    setStatus({ kind: 'loading', message: messages().loading.lookingUp(city) });
     try {
       const { lat, lon, name } = await geocodeCity(city.trim());
       await start({ lat, lon, label: name, city: name });
@@ -120,9 +116,7 @@ export function useRecommendation(
         exploredPlaces: exploredNear(visits, session.origin),
       });
       if (result.recommendation.verdict === 'go' && !result.place) {
-        keepCurrent(
-          `No other places fit in ${availableMinutes} minutes around ${session.origin.label}. Try more time to reach farther ones.`,
-        );
+        keepCurrent(messages().errors.noOtherPlaces(availableMinutes, originLabel(session.origin)));
         return;
       }
       setStatus({ kind: 'done', result, session: remember(result, session), finding: false, notice: null });

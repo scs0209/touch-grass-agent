@@ -1,3 +1,4 @@
+import { useMessages } from '../i18n';
 import type { RecentPlace } from '../types/places';
 import { describeRecentPlace } from '../utils/places';
 
@@ -9,11 +10,13 @@ interface RecentPlacesProps {
 }
 
 export function RecentPlaces({ places, disabled, onPick, onRemove }: RecentPlacesProps) {
+  const t = useMessages().recent;
+
   return (
     <section className="panel recent-places" aria-labelledby="recent-places-title">
-      <h2 id="recent-places-title">Recent places</h2>
+      <h2 id="recent-places-title">{t.title}</h2>
       {places.length === 0 ? (
-        <p className="muted small">Places you get suggested show up here, so you can pick one again later.</p>
+        <p className="muted small">{t.empty}</p>
       ) : (
         <ul>
           {places.map((place) => (
@@ -25,7 +28,7 @@ export function RecentPlaces({ places, disabled, onPick, onRemove }: RecentPlace
               <button
                 className="recent-remove"
                 onClick={() => onRemove(place)}
-                aria-label={`Remove ${place.name} from recent places`}
+                aria-label={t.remove(place.name)}
                 type="button"
               >
                 ×

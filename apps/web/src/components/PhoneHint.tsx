@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useMessages } from '../i18n';
 import { isOnThisComputer } from '../utils/host';
 
 const SETUP_URL = 'https://github.com/scs0209/touch-grass-agent#use-it-on-your-phone';
 
 /** Tells people on the Mac how to take the app outside, since a phone can only reach Gemma through Tailscale. */
 export function PhoneHint() {
+  const t = useMessages().phone;
   const [open, setOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -24,38 +26,41 @@ export function PhoneHint() {
   return (
     <>
       <button ref={openRef} className="link" onClick={() => setOpen(true)} type="button">
-        Use it on your phone
+        {t.link}
       </button>
       {open && (
         <div className="dialog-backdrop">
           <div className="panel phone-hint" role="dialog" aria-modal="true" aria-labelledby="phone-hint-title">
             <div className="phone-hint-header">
-              <h2 id="phone-hint-title">Take it outside</h2>
-              <button ref={closeRef} className="phone-hint-close" onClick={close} aria-label="Close" type="button">
+              <h2 id="phone-hint-title">{t.title}</h2>
+              <button ref={closeRef} className="phone-hint-close" onClick={close} aria-label={t.close} type="button">
                 ×
               </button>
             </div>
-            <p className="muted small">
-              Gemma runs on this computer. To use the app on your phone outside, connect the two with Tailscale, which
-              is free for personal use. Checking in works on the phone even without a signal.
-            </p>
+            <p className="muted small">{t.body}</p>
             <ol className="small">
               <li>
-                Install{' '}
+                {t.installBefore}
                 <a href="https://tailscale.com/download" target="_blank" rel="noreferrer">
                   Tailscale
-                </a>{' '}
-                on this computer and your phone, signed in to the same account.
+                </a>
+                {t.installAfter}
               </li>
               <li>
-                Run <code>pnpm phone</code>, then <code>tailscale serve --bg 4173</code>.
+                {t.runBefore}
+                <code>pnpm phone</code>
+                {t.runBetween}
+                <code>tailscale serve --bg 4173</code>
+                {t.runAfter}
               </li>
               <li>
-                Open the <code>https://….ts.net</code> address it prints on your phone.
+                {t.openBefore}
+                <code>https://….ts.net</code>
+                {t.openAfter}
               </li>
             </ol>
             <a className="link small" href={SETUP_URL} target="_blank" rel="noreferrer">
-              Full setup steps
+              {t.fullSteps}
             </a>
           </div>
         </div>

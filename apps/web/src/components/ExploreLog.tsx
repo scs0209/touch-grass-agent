@@ -1,3 +1,4 @@
+import { useMessages } from '../i18n';
 import type { Visit } from '../types/explore';
 import { badges, describeStats, exploreStats, isDone, missions, visitDate } from '../utils/explore';
 import { placeArea } from '../utils/places';
@@ -7,6 +8,7 @@ const MAX_RECENT_VISITS = 3;
 
 /** The places the person actually went to, compared only with their own earlier weeks. */
 export function ExploreLog({ visits }: { visits: Visit[] }) {
+  const t = useMessages().explore;
   const stats = exploreStats(visits);
   // Lasting goals move to the badges once reached; today's and this week's stay to show they're done.
   const shown = missions(visits)
@@ -16,25 +18,23 @@ export function ExploreLog({ visits }: { visits: Visit[] }) {
 
   return (
     <section className="panel explore-log" aria-labelledby="explore-log-title" data-tour="explorations">
-      <h2 id="explore-log-title">Your explorations</h2>
+      <h2 id="explore-log-title">{t.title}</h2>
       {visits.length === 0 ? (
-        <p className="muted small">
-          Check in when you reach a suggested place and it shows up here. Nothing leaves this device.
-        </p>
+        <p className="muted small">{t.empty}</p>
       ) : (
         <>
           <p className="explore-stats">{describeStats(stats)}</p>
           <dl className="explore-weeks">
             <div>
-              <dt className="tile-label">This week</dt>
+              <dt className="tile-label">{t.thisWeek}</dt>
               <dd className="tile-value">{stats.thisWeek}</dd>
             </div>
             <div>
-              <dt className="tile-label">Last week</dt>
+              <dt className="tile-label">{t.lastWeek}</dt>
               <dd className="tile-value">{stats.lastWeek}</dd>
             </div>
             <div>
-              <dt className="tile-label">Best week</dt>
+              <dt className="tile-label">{t.bestWeek}</dt>
               <dd className="tile-value">{stats.bestWeek}</dd>
             </div>
           </dl>
@@ -57,7 +57,7 @@ export function ExploreLog({ visits }: { visits: Visit[] }) {
       </ul>
 
       {earned.length > 0 && (
-        <ul className="badges" aria-label="Badges">
+        <ul className="badges" aria-label={t.badgesLabel}>
           {earned.map((badge) => (
             <li key={badge.id} title={badge.detail}>
               {badge.title}
@@ -67,7 +67,7 @@ export function ExploreLog({ visits }: { visits: Visit[] }) {
       )}
 
       {visits.length > 0 && (
-        <ul className="explore-recent" aria-label="Recently explored">
+        <ul className="explore-recent" aria-label={t.recentLabel}>
           {visits.slice(0, MAX_RECENT_VISITS).map((visit) => (
             <li key={`${visit.name}-${visit.at}`}>
               <span className="recent-name">{visit.name}</span>

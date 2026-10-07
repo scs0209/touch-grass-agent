@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTour } from '../hooks/useTour';
+import { useMessages } from '../i18n';
 import type { TourId } from '../types/tour';
 import { placeTooltip } from '../utils/tour';
 
@@ -9,6 +10,7 @@ const SPOTLIGHT_PAD = 6;
 
 /** A step-by-step tour that dims the screen and points a card at one element at a time. */
 export function Tour({ id }: { id: TourId }) {
+  const t = useMessages().tour;
   const { step, index, count, target, next, back, finish } = useTour(id);
   const tipRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -58,21 +60,21 @@ export function Tour({ id }: { id: TourId }) {
         <p className="tour-count">
           {index + 1} / {count}
         </p>
-        <h2 id="tour-title">{step.title}</h2>
+        <h2 id="tour-title">{t.steps[step].title}</h2>
         <p id="tour-body" className="muted small">
-          {step.body}
+          {t.steps[step].body}
         </p>
         <div className="tour-actions">
           <button className="link" onClick={finish} type="button">
-            Skip
+            {t.skip}
           </button>
           {index > 0 && (
             <button className="secondary" onClick={back} type="button">
-              Back
+              {t.back}
             </button>
           )}
           <button ref={nextRef} className="primary" onClick={next} type="button">
-            {index + 1 === count ? 'Done' : 'Next'}
+            {index + 1 === count ? t.done : t.next}
           </button>
         </div>
       </div>

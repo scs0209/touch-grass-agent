@@ -13,6 +13,7 @@ import {
   type TooltipProps,
 } from 'react-leaflet';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useMessages } from '../i18n';
 import type { Route } from '../types/api';
 import type { LatLon, NamedPoint } from '../types/geo';
 
@@ -60,6 +61,7 @@ function routeParts({ coordinates, rideRange }: NonNullable<ResultMapProps['rout
 
 /** The map on the result card, with a button that opens it over the whole screen. */
 export function ResultMap({ caption, ...props }: ResultMapProps & { caption: string | null }) {
+  const t = useMessages().map;
   const [expanded, setExpanded] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -78,8 +80,8 @@ export function ResultMap({ caption, ...props }: ResultMapProps & { caption: str
     <>
       <div className="map-frame">
         <RouteMap {...props} expanded={false} />
-        <button className="map-expand" onClick={() => setExpanded(true)} aria-label="Show the map full screen">
-          ⤢ Full map
+        <button className="map-expand" onClick={() => setExpanded(true)} aria-label={t.fullLabel} type="button">
+          {t.full}
         </button>
       </div>
       {/* The card's backdrop-filter would trap a fixed overlay inside the card, so it renders on body. */}
@@ -89,14 +91,15 @@ export function ResultMap({ caption, ...props }: ResultMapProps & { caption: str
             className="map-backdrop"
             role="dialog"
             aria-modal="true"
-            aria-label={`Map to ${props.place?.name ?? 'your destination'}`}
+            aria-label={t.dialog(props.place?.name ?? t.yourDestination)}
           >
             <RouteMap {...props} expanded />
             <button
               ref={closeRef}
               className="map-close"
               onClick={() => setExpanded(false)}
-              aria-label="Close the full map"
+              aria-label={t.close}
+              type="button"
             >
               ✕
             </button>
@@ -109,6 +112,7 @@ export function ResultMap({ caption, ...props }: ResultMapProps & { caption: str
 }
 
 function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProps & { expanded: boolean }) {
+  const t = useMessages().map;
   const originPoint: LatLngTuple = [origin.lat, origin.lon];
   const points: LatLngTuple[] = [
     originPoint,
@@ -156,7 +160,7 @@ function RouteMap({ origin, place, route, bikeStation, expanded }: ResultMapProp
           radius={8}
           pathOptions={{ color: '#fff', fillColor: '#2a6fdb', fillOpacity: 1 }}
         >
-          <Tooltip>You are here</Tooltip>
+          <Tooltip>{t.youAreHere}</Tooltip>
         </CircleMarker>
       </Pane>
       {place && (

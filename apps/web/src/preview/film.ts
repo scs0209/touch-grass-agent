@@ -1,3 +1,4 @@
+import { messages } from '../i18n';
 import { fetchTripPhotos, tripPhotoUrl } from '../services/api';
 import type { TripPhoto, TripPhotos } from '../types/api';
 import type { LatLon } from '../types/geo';
@@ -120,8 +121,6 @@ const SHOT_BEATS = { opening: 7, route: 14, arrival: 6, thing: 5, ending: 8 };
 /** Photo and note shots stay up long enough to read their caption, within these beats. */
 const READ_BEATS = { min: 5, max: 8 };
 const PHOTO_ONLY_BEATS = 4;
-/** Reading speed for on-screen text, in characters per second. */
-const READ_CHARS_PER_SEC = 13;
 const MAX_PHOTOS = 4;
 const MAX_MAP_THINGS = 3;
 const FADE_SEC = 0.35;
@@ -481,7 +480,7 @@ export async function loadFilm(input: StoryInput, bpm: number, signal: AbortSign
 /** Enough beats to read the caption once it has come in, so shots vary in length with what they say. */
 function readingBeats(text: Caption, beat: number) {
   const chars = `${text.title} ${text.sub ?? ''}`.trim().length;
-  const seconds = CARD_IN_SEC + chars / READ_CHARS_PER_SEC;
+  const seconds = CARD_IN_SEC + chars / messages().film.readCharsPerSec;
   return Math.min(READ_BEATS.max, Math.max(READ_BEATS.min, Math.ceil(seconds / beat)));
 }
 
@@ -497,33 +496,36 @@ function cardRect(image: HTMLCanvasElement) {
 }
 
 function walkCaption(input: StoryInput): Caption {
+  const t = messages().film;
   const byBike = input.bikeStation !== null;
   const { route } = input;
   const there = route ? Math.round(route.durationMin / 2) : Math.round(input.durationMin / 2);
   const km = route ? (route.distanceM / 2000).toFixed(1) : null;
   return {
-    kicker: byBike ? `By bike from ${input.bikeStation?.name}` : 'On foot',
-    title: `On the way to ${input.placeName}`,
-    sub: km ? `${km} km · about ${there} min there` : `About ${there} min there`,
+    kicker: byBike ? t.byBike(input.bikeStation?.name ?? '') : t.onFoot,
+    title: t.onTheWay(input.placeName),
+    sub: t.wayThere(km, there),
   };
 }
 
 function creditsFor(photos: TripPhoto[]) {
-  const lines = [`Map: ${MAP_CREDIT}`];
+  const t = messages().film;
+  const lines = [t.mapCredit(MAP_CREDIT)];
   const street = [...new Set(photos.filter((photo) => photo.source === 'mapillary').map((photo) => photo.creator))];
   if (street.length > 0) {
-    const names = street.length > 3 ? `${street.slice(0, 3).join(', ')} and others` : street.join(', ');
-    lines.push(`Photos: ${names} on Mapillary, CC BY-SA 4.0`);
+    const names = street.length > 3 ? t.andOthers(street.slice(0, 3)) : street.join(', ');
+    lines.push(t.mapillaryCredit(names));
   }
   const commons = photos.filter((photo) => photo.source === 'wikimedia');
   for (const photo of new Map(commons.map((p) => [p.creator + p.license, p])).values()) {
-    lines.push(`Photo: ${photo.creator}, ${photo.license}, via Wikimedia Commons`);
+    lines.push(t.commonsCredit(photo.creator, photo.license));
   }
   return lines;
 }
 
 function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan, photos: LoadedPhoto[]): Film {
   const story = buildStory(input, bpm);
+  const { film: t, weather } = messages();
   const beat = 60 / bpm;
   const shots: Shot[] = [];
   const captions: CaptionSpan[] = [];
@@ -565,9 +567,9 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   );
   const dress = input.outfitItems.slice(0, 3).map((item) => item.label.toLowerCase());
   caption(opening, {
-    kicker: `${Math.round(input.conditions.temperatureC)}° · ${input.conditions.description} right now`,
-    title: `Your next ${input.durationMin} minutes`,
-    sub: dress.length > 0 ? `Dress for ${Math.round(input.conditions.feelsLikeC)}°: ${dress.join(', ')}` : undefined,
+    kicker: t.rightNow(Math.round(input.conditions.temperatureC), weather.describe(input.conditions.description)),
+    title: t.nextMinutes(input.durationMin),
+    sub: dress.length > 0 ? t.dressFor(Math.round(input.conditions.feelsLikeC), dress) : undefined,
   });
 
   // Tracking shot behind the walker, all the way to the park.
@@ -575,18 +577,18 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   caption(route, walkCaption(input));
 
   const arrival = addMap('arrival', SHOT_BEATS.arrival, camera.orbit, () => null);
-  caption(arrival, { kicker: "You've arrived", title: input.placeName });
+  caption(arrival, { kicker: t.arrived, title: input.placeName });
 
   if (photos.length > 0) {
     const things = input.things.slice(0, Math.max(photos.length, MAX_MAP_THINGS));
     // Photos beyond the things to do name the park once, then play shorter without words rather than repeat it.
     const thingCaption = (i: number): Caption => ({
-      kicker: `Once you're there · ${i + 1}/${things.length}`,
+      kicker: t.onceThereCount(i + 1, things.length),
       title: things[i].text,
     });
     const photoCaption = (i: number): Caption | null => {
       if (i < things.length) return thingCaption(i);
-      return i === things.length ? { kicker: "Once you're there", title: input.placeName } : null;
+      return i === things.length ? { kicker: t.onceThere, title: input.placeName } : null;
     };
     // Three shots of the same length in a row start to feel like a slideshow.
     const used: number[] = [];
@@ -668,7 +670,7 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
       things.forEach((thing, i) =>
         caption(
           { start: circling.start + i * each, length: each },
-          { kicker: `Once you're there · ${i + 1}/${things.length}`, title: thing.text },
+          { kicker: t.onceThereCount(i + 1, things.length), title: thing.text },
         ),
       );
     }
@@ -687,8 +689,8 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
     ending,
     {
       kicker: input.discovery ?? undefined,
-      title: 'Ready when you are.',
-      chips: ['Leave now', `Back by ${story.backBy}`, ...(story.sunsetAt ? [`Sunset ${story.sunsetAt}`] : [])],
+      title: t.ready,
+      chips: [t.leaveNow, t.backBy(story.backBy), ...(story.sunsetAt ? [t.sunset(story.sunsetAt)] : [])],
     },
     'end',
   );

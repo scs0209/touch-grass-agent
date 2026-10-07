@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { CheckInStatus } from '../hooks/useExplorations';
+import { useMessages } from '../i18n';
 import type { RecentPlace } from '../types/places';
 import { type ArrivalSummary, arrivalLine, candidateNames } from '../utils/explore';
 import { formatDistance } from '../utils/places';
@@ -16,6 +17,7 @@ interface CheckInProps {
 
 /** Saves a suggested place as explored once the person is actually there. */
 export function CheckIn({ candidates, status, onCheckIn, onDismiss, compact = false }: CheckInProps) {
+  const t = useMessages().checkIn;
   const arrival =
     status.kind === 'arrived' ? (
       <ArrivalDialog place={status.place} summary={status.summary} onClose={onDismiss} />
@@ -26,11 +28,11 @@ export function CheckIn({ candidates, status, onCheckIn, onDismiss, compact = fa
   const controls = (
     <>
       <button className="secondary" onClick={onCheckIn} disabled={status.kind === 'locating'} type="button">
-        {status.kind === 'locating' ? 'Checking where you are…' : "📍 I'm here"}
+        {status.kind === 'locating' ? t.locating : t.button}
       </button>
       {status.kind === 'far' && (
         <p className="note" role="status">
-          You're about {formatDistance(status.distanceM)} from {status.place.name}. Check in once you're there.
+          {t.far(formatDistance(status.distanceM), status.place.name)}
         </p>
       )}
       {status.kind === 'error' && <p className="error">{status.message}</p>}
@@ -41,7 +43,7 @@ export function CheckIn({ candidates, status, onCheckIn, onDismiss, compact = fa
   if (compact) {
     return (
       <div className="check-in" data-tour="check-in">
-        <p className="muted small">At {names}? Check in to add it to your explorations.</p>
+        <p className="muted small">{t.compactBody(names)}</p>
         {controls}
       </div>
     );
@@ -49,10 +51,8 @@ export function CheckIn({ candidates, status, onCheckIn, onDismiss, compact = fa
 
   return (
     <section className="panel check-in" aria-labelledby="check-in-title">
-      <h2 id="check-in-title">Out exploring?</h2>
-      <p className="muted small">
-        Made it to {names}? Check in to add it to your explorations. Your location is only compared on this device.
-      </p>
+      <h2 id="check-in-title">{t.title}</h2>
+      <p className="muted small">{t.body(names)}</p>
       {controls}
     </section>
   );
@@ -65,6 +65,7 @@ interface ArrivalDialogProps {
 }
 
 function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
+  const t = useMessages().checkIn;
   const closeRef = useRef<HTMLButtonElement>(null);
   const { finished, advanced, newBadges } = summary;
   const things = place.thingsToDo ?? [];
@@ -77,7 +78,7 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
   return (
     <div className="dialog-backdrop">
       <div className="panel arrival" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
-        <p className="verdict">You made it.</p>
+        <p className="verdict">{t.madeIt}</p>
         <h2 id="arrival-title">{place.name}</h2>
         <p className="muted small">{arrivalLine(summary)}</p>
         {(finished.length > 0 || advanced || newBadges.length > 0) && (
@@ -92,14 +93,14 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
             )}
             {newBadges.map((badge) => (
               <li key={badge.id}>
-                New badge: <strong>{badge.title}</strong>
+                {t.newBadge} <strong>{badge.title}</strong>
               </li>
             ))}
           </ul>
         )}
         {things.length > 0 && (
           <div className="things-to-do">
-            <span className="tile-label">Now that you're here</span>
+            <span className="tile-label">{t.nowThatYoureHere}</span>
             <ul>
               {things.map((thing) => (
                 <li key={thing}>{thing}</li>
@@ -108,7 +109,7 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
           </div>
         )}
         <button ref={closeRef} className="primary" onClick={onClose} type="button">
-          Put my phone away
+          {t.putPhoneAway}
         </button>
       </div>
     </div>

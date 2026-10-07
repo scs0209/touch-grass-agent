@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useMessages } from '../i18n';
 import { loadAssets } from '../preview/assets';
 import { drawFilmFrame, FILM_HEIGHT, FILM_WIDTH, type Film, loadFilm } from '../preview/film';
 import { BPM, type Music, moodFor, playMusic } from '../preview/music';
@@ -35,6 +36,7 @@ interface WalkPreviewProps {
 }
 
 export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
+  const { preview: text, result: resultText } = useMessages();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
@@ -201,7 +203,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   async function share() {
     if (!video) return;
     try {
-      await navigator.share({ files: [video.file], title: `My walk to ${input.placeName}` });
+      await navigator.share({ files: [video.file], title: text.shareTitle(input.placeName) });
     } catch {
       // The person closed the share sheet.
     }
@@ -212,7 +214,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
       className="preview-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}
+      aria-label={text.dialog(Boolean(input.bikeStation), input.placeName)}
     >
       <div className="preview-stage">
         {recorded ? (
@@ -230,23 +232,23 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
             className="preview-icon"
             onClick={() => setMuted(!muted)}
             aria-pressed={muted}
-            aria-label="Mute music"
+            aria-label={text.mute}
           >
             {muted ? '🔇' : '🔊'}
           </button>
-          <button type="button" className="preview-icon" onClick={onClose} aria-label="Close preview" autoFocus>
+          <button type="button" className="preview-icon" onClick={onClose} aria-label={text.close} autoFocus>
             ✕
           </button>
         </div>
         {phase === 'loading' && (
           <p className="preview-status shimmer" role="status">
-            Getting your walk ready…
+            {text.loading}
           </p>
         )}
-        {phase === 'error' && <p className="preview-status">Couldn't load the preview.</p>}
+        {phase === 'error' && <p className="preview-status">{text.error}</p>}
         {phase === 'blocked' && (
           <button type="button" className="preview-play" onClick={start}>
-            ▶ Play with music
+            {text.play}
           </button>
         )}
         {phase === 'done' && (
@@ -257,20 +259,20 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
               target="_blank"
               rel="noreferrer"
             >
-              {input.bikeStation ? 'Ride' : 'Walk'} to {input.placeName}
+              {resultText.directions(Boolean(input.bikeStation), input.placeName)}
             </a>
             <div className="preview-row">
               <button type="button" className="secondary" onClick={start}>
-                Replay
+                {text.replay}
               </button>
               {video && (
                 <a className="secondary" href={video.url} download={video.file.name}>
-                  Save video
+                  {text.save}
                 </a>
               )}
               {canShare && (
                 <button type="button" className="secondary" onClick={() => void share()}>
-                  Share
+                  {text.share}
                 </button>
               )}
             </div>

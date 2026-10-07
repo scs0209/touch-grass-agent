@@ -1,3 +1,4 @@
+import { currentLanguage } from '../i18n';
 import type { Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
 
@@ -7,10 +8,11 @@ const MAX_VIDEOS = 3;
 const videos = new Map<string, File>();
 
 /**
- * Everything a preview is drawn from. Its clock times come from the result, not from when it plays, so the
+ * Everything a preview is drawn from, including the language of its captions. Its clock times come from the result, not from when it plays, so the
  * same key always means the same video.
  */
-export const videoKey = (input: StoryInput, outfit: Outfit, still: boolean) => JSON.stringify({ input, outfit, still });
+export const videoKey = (input: StoryInput, outfit: Outfit, still: boolean) =>
+  JSON.stringify({ input, outfit, still, language: currentLanguage() });
 
 /** A video recorded earlier from the same key, so opening the preview again plays it instead of rebuilding it. */
 export function recordedVideo(key: string): File | null {

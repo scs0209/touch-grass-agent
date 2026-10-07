@@ -1,12 +1,12 @@
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
-import { FIT_LABELS } from '../constants/outfit';
+import { useMessages } from '../i18n';
 import type { RecommendResponse } from '../types/api';
 import type { Visit } from '../types/explore';
 import type { Fit, Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
 import { directionsUrl } from '../utils/directions';
 import { discoveryLabel, placeNote } from '../utils/explore';
-import { PLACE_KIND_LABEL, placeArea } from '../utils/places';
+import { placeArea } from '../utils/places';
 import { describeRoute, storyInput } from '../utils/result';
 import { Avatar } from './Avatar';
 import { OutfitCards } from './OutfitCards';
@@ -41,6 +41,7 @@ export function ResultCard({
   onAnotherPlace,
   onReset,
 }: ResultCardProps) {
+  const { result: t, places } = useMessages();
   const { recommendation, conditions, outfits, origin, place, route, bikeStation, source } = result;
   const [fit, setFit] = useState<Fit>('normal');
   const [preview, setPreview] = useState<{ input: StoryInput; outfit: Outfit } | null>(null);
@@ -58,17 +59,17 @@ export function ResultCard({
   return (
     <main className={`screen result ${recommendation.verdict}`}>
       <section className="panel">
-        <p className="verdict">{isGo ? 'Go outside.' : 'Maybe stay in for now.'}</p>
+        <p className="verdict">{isGo ? t.go : t.stay}</p>
         <h1>{recommendation.activity}</h1>
         {isGo && place && (
-          <p className="muted small">{[PLACE_KIND_LABEL[place.kind], placeArea(place)].filter(Boolean).join(' · ')}</p>
+          <p className="muted small">{[places.kind[place.kind], placeArea(place)].filter(Boolean).join(' · ')}</p>
         )}
         {isGo && note && <p className="discovery small">{note}</p>}
-        <p className="duration">{recommendation.durationMin} minutes</p>
+        <p className="duration">{t.minutes(recommendation.durationMin)}</p>
         <p className="reason">{recommendation.reason}</p>
         {recommendation.thingsToDo.length > 0 && (
           <div className="things-to-do">
-            <span className="tile-label">Once you're there</span>
+            <span className="tile-label">{t.onceThere}</span>
             <ul>
               {recommendation.thingsToDo.map((thing) => (
                 <li key={thing}>{thing}</li>
@@ -81,9 +82,9 @@ export function ResultCard({
 
       {isGo && place && (
         <div className="another-place">
-          <p className="muted small">Not feeling it? Try somewhere else around {around}.</p>
+          <p className="muted small">{t.notFeelingIt(around)}</p>
           <button className="secondary" onClick={onAnotherPlace} disabled={finding} type="button">
-            {finding ? 'Finding another place…' : '↻ Another place'}
+            {finding ? t.finding : t.another}
           </button>
           {notice && (
             <p className="note" role="status">
@@ -102,7 +103,7 @@ export function ResultCard({
           }
           type="button"
         >
-          ▶ Preview your {bikeStation ? 'ride' : 'walk'}
+          {t.preview(Boolean(bikeStation))}
         </button>
       )}
       {preview && (
@@ -122,7 +123,7 @@ export function ResultCard({
 
       {isGo && (
         <section className="panel outfit">
-          <h2>What to wear</h2>
+          <h2>{t.wear}</h2>
           {outfits.length > 1 && (
             <div className="chips">
               {outfits.map((option) => (
@@ -132,7 +133,7 @@ export function ResultCard({
                   onClick={() => setFit(option.fit)}
                   type="button"
                 >
-                  {FIT_LABELS[option.fit]}
+                  {t.fit[option.fit]}
                 </button>
               ))}
             </div>
@@ -153,20 +154,18 @@ export function ResultCard({
           target="_blank"
           rel="noreferrer"
         >
-          {place && bikeStation ? 'Ride' : 'Walk'} to {destination.name}
+          {t.directions(Boolean(place && bikeStation), destination.name)}
         </a>
       )}
 
       {isGo && place && checkIn}
 
-      {isGo && <p className="pocket">Now put your phone in your pocket.</p>}
+      {isGo && <p className="pocket">{t.pocket}</p>}
 
       <button className="link" onClick={onReset} type="button">
-        Ask again
+        {t.askAgain}
       </button>
-      <p className="muted small">
-        {source === 'model' ? 'Suggested by Gemma running locally' : 'Rule-based suggestion (model unavailable)'}
-      </p>
+      <p className="muted small">{source === 'model' ? t.byModel : t.byRules}</p>
       {isGo && place && <Tour id="result" />}
     </main>
   );

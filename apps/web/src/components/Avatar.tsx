@@ -1,3 +1,4 @@
+import { useMessages } from '../i18n';
 import type { Bottom, Extra, Outer, Outfit, Top } from '../types/outfit';
 
 type OuterLayerKind = Exclude<Outer, 'none'>;
@@ -222,9 +223,10 @@ export function Avatar({ outfit }: { outfit: Outfit }) {
   const sleeveColor = outer === 'none' ? TOP_COLORS[top] : OUTER_COLORS[outer];
   const longSleeve = !(outer === 'none' && top === 'tshirt');
   const handColor = extras.includes('gloves') ? '#8a5aa0' : SKIN;
+  const label = useMessages().outfit.avatar;
 
   return (
-    <svg className="avatar" viewBox="0 -50 200 330" role="img" aria-label="Avatar wearing the suggested outfit">
+    <svg className="avatar" viewBox="0 -50 200 330" role="img" aria-label={label}>
       {extras.includes('umbrella') && <Umbrella />}
       <Legs bottom={bottom} />
       <Arm side="left" sleeveColor={sleeveColor} longSleeve={longSleeve} handColor={handColor} />

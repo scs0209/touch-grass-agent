@@ -1,3 +1,4 @@
+import { messages } from '../i18n';
 import type { PlaceKind } from '../types/api';
 import type { Badge, ExploreStats, Mission, Visit } from '../types/explore';
 import type { LatLon, NamedPoint } from '../types/geo';
@@ -93,6 +94,7 @@ export function exploreStats(visits: Visit[], now = Date.now()): ExploreStats {
 
 /** Goals that are only reached by going somewhere; check-ins happen on site. */
 export function missions(visits: Visit[], now = Date.now()): Mission[] {
+  const t = messages().explore.missions;
   const places = firstVisits(visits);
   const today = startOfDay(now);
   const week = startOfWeek(now);
@@ -100,35 +102,35 @@ export function missions(visits: Visit[], now = Date.now()): Mission[] {
   return [
     {
       id: 'today',
-      title: "Explore one of today's suggestions",
+      title: t.today,
       progress: Math.min(1, visits.filter((visit) => visit.at >= today).length),
       goal: 1,
       repeats: true,
     },
     {
       id: 'week',
-      title: `Explore ${WEEKLY_GOAL} new places this week`,
+      title: t.week(WEEKLY_GOAL),
       progress: Math.min(WEEKLY_GOAL, places.filter((place) => place.at >= week).length),
       goal: WEEKLY_GOAL,
       repeats: true,
     },
     {
       id: 'city',
-      title: `Find ${CITY_GOAL} different places in one city`,
+      title: t.city(CITY_GOAL),
       progress: Math.min(CITY_GOAL, mostInOneCity),
       goal: CITY_GOAL,
       repeats: false,
     },
     {
       id: 'cities',
-      title: 'Explore a second city',
+      title: t.cities,
       progress: Math.min(2, citiesOf(visits).size),
       goal: 2,
       repeats: false,
     },
     {
       id: 'kinds',
-      title: 'Explore both a park and a landmark',
+      title: t.kinds,
       progress: new Set(places.map((place) => place.kind)).size,
       goal: 2,
       repeats: false,
@@ -139,29 +141,22 @@ export function missions(visits: Visit[], now = Date.now()): Mission[] {
 export const isDone = (mission: Mission) => mission.progress >= mission.goal;
 
 export function badges(visits: Visit[]): Badge[] {
+  const t = messages().explore.badges;
   const places = firstVisits(visits);
   const cities = [...citiesOf(visits)];
   const localCity = [...placesPerCity(places)].find(([, count]) => count >= CITY_GOAL)?.[0];
   const streak = longestStreak(new Set(placesPerWeek(visits).keys()));
   const earned: (Badge | false)[] = [
-    places.length >= 1 && { id: 'first', title: 'First steps', detail: `First check-in at ${places[0].name}` },
-    places.length >= 5 && { id: 'five', title: 'Five places', detail: '5 different places explored' },
-    places.length >= 10 && { id: 'ten', title: 'Ten places', detail: '10 different places explored' },
-    new Set(places.map((place) => place.kind)).size >= 2 && {
-      id: 'kinds',
-      title: 'Park and landmark',
-      detail: 'Explored both a park and a landmark',
-    },
-    localCity !== undefined && {
-      id: 'local',
-      title: 'Local explorer',
-      detail: `${CITY_GOAL} different places in ${localCity}`,
-    },
-    cities.length >= 2 && { id: 'cities', title: 'Two cities', detail: cities.join(', ') },
+    places.length >= 1 && { id: 'first', title: t.first, detail: t.firstDetail(places[0].name) },
+    places.length >= 5 && { id: 'five', title: t.five, detail: t.fiveDetail },
+    places.length >= 10 && { id: 'ten', title: t.ten, detail: t.tenDetail },
+    new Set(places.map((place) => place.kind)).size >= 2 && { id: 'kinds', title: t.kinds, detail: t.kindsDetail },
+    localCity !== undefined && { id: 'local', title: t.local, detail: t.localDetail(CITY_GOAL, localCity) },
+    cities.length >= 2 && { id: 'cities', title: t.cities, detail: cities.join(', ') },
     streak >= STREAK_BADGE_WEEKS && {
       id: 'streak',
-      title: `${STREAK_BADGE_WEEKS} weeks in a row`,
-      detail: `Out exploring ${STREAK_BADGE_WEEKS} weeks running`,
+      title: t.streak(STREAK_BADGE_WEEKS),
+      detail: t.streakDetail(STREAK_BADGE_WEEKS),
     },
   ];
   return earned.filter((badge): badge is Badge => badge !== false);
@@ -169,11 +164,12 @@ export function badges(visits: Visit[]): Badge[] {
 
 /** What makes this place worth the trip for this person, or null when they've been there. */
 export function discoveryLabel(visits: Visit[], place: PlaceInfo) {
+  const t = messages().explore.discovery;
   if (visits.some((visit) => isSamePlace(visit, place))) return null;
-  if (visits.length === 0) return 'Your first exploration';
-  if (!visits.some((visit) => visit.kind === place.kind)) return `Your first ${place.kind}`;
-  if (place.city && !visits.some((visit) => visit.city === place.city)) return `First place in ${place.city}`;
-  return 'New place for you';
+  if (visits.length === 0) return t.first;
+  if (!visits.some((visit) => visit.kind === place.kind)) return t.firstKind(place.kind);
+  if (place.city && !visits.some((visit) => visit.city === place.city)) return t.firstIn(place.city);
+  return t.new;
 }
 
 export const lastVisit = (visits: Visit[], place: NamedPoint) => visits.find((visit) => isSamePlace(visit, place));
@@ -213,37 +209,33 @@ export type ArrivalSummary = ReturnType<typeof arrivalSummary>;
 
 /** "Seoul Forest", "Seoul Forest or Naksan Park", or "Seoul Forest or 2 other places". */
 export function candidateNames(candidates: RecentPlace[]) {
+  const t = messages().checkIn;
   const [first, second, ...rest] = candidates;
   if (!second) return first?.name ?? '';
-  if (rest.length === 0) return `${first.name} or ${second.name}`;
-  return `${first.name} or ${rest.length + 1} other places`;
+  if (rest.length === 0) return t.namesTwo(first.name, second.name);
+  return t.namesMany(first.name, rest.length + 1);
 }
 
 /** The line under the place name on arrival. */
 export function arrivalLine({ discovery, lastVisit }: ArrivalSummary) {
+  const t = messages().explore;
   if (discovery) return discovery;
-  return lastVisit ? `Back again · last here ${visitDate(lastVisit.at)}` : 'Back again';
+  return lastVisit ? t.backAgainSince(visitDate(lastVisit.at)) : t.backAgain;
 }
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-
-/** E.g. "4 places · 2 cities · 3 weeks in a row"; a streak counts once it is two weeks long. */
-export function describeStats({ places, cities, weekStreak }: ExploreStats) {
-  const parts = [plural(places, 'place'), cities === 1 ? '1 city' : `${cities} cities`];
-  if (weekStreak >= 2) parts.push(`${weekStreak} weeks in a row`);
-  return parts.join(' · ');
-}
+export const describeStats = (stats: ExploreStats) => messages().explore.stats(stats);
 
 /** The line under a suggested place: what going there would be for the person, or when they were last there. */
 export function placeNote(visits: Visit[], place: PlaceInfo) {
+  const t = messages().explore;
   const discovery = discoveryLabel(visits, place);
   if (!discovery) {
     const last = lastVisit(visits, place);
-    return last ? `You explored this on ${visitDate(last.at)}` : null;
+    return last ? t.exploredOn(visitDate(last.at)) : null;
   }
   const mission = missionFor(visits, place);
   if (!mission) return discovery;
-  return `${discovery} · ${isDone(mission) ? 'completes' : 'counts toward'} “${mission.title}”`;
+  return t.missionNote(discovery, isDone(mission), mission.title);
 }
 
 /** Today's suggestions without a check-in since they were suggested. */
@@ -272,5 +264,6 @@ export function exploredNear(visits: Visit[], origin: LatLon) {
   return [...new Set(names)].slice(0, MAX_EXPLORED_NAMES);
 }
 
-/** In English like the rest of the screen, e.g. "Oct 7". */
-export const visitDate = (ms: number) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/** In the app's language rather than the browser's, e.g. "Oct 7" or "10월 7일". */
+export const visitDate = (ms: number) =>
+  new Date(ms).toLocaleDateString(messages().locale, { month: 'short', day: 'numeric' });

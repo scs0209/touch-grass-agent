@@ -168,23 +168,27 @@ changed since the README was last checked and `README.md` wasn't touched.
 
 ## Where things are
 
-- `apps/server/src/conditions/`: weather and air quality (Open-Meteo), parks (Nominatim), park features
+- `apps/server/src/conditions/`: weather and air quality (Open-Meteo), parks and city search (Nominatim), park features
   (Overpass), walking and cycling routes (OSRM), Seoul bikes.
 - `apps/server/src/agent.ts`: the Gemma prompt. `apps/server/src/recommend.ts`: gathering conditions,
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
+  `apps/server/src/translate.ts`: the second Gemma call that translates the checked English answer into Korean.
+  Gemma must keep answering in English, because the checks in `recommend.ts` match English words.
 - `apps/server/src/cache.ts`: the shared in-memory cache (TTL, shared in-flight requests, stale fallback).
   Use it for any new upstream call instead of a hand-made `Map`; never cache realtime data like bike counts.
 - `scripts/bench/` and `docs/benchmarks/caching.md`: the before/after caching benchmark. After changing a cache,
   rerun `node scripts/bench/compare.mjs <before> <after>` and update the page, its chart, and its raw results.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
- - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `PhoneHint`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
+ - `i18n/`: every word on screen, in `en.ts` and `ko.ts` (typed to have the same keys). Components read them with
+   `useMessages()`, other code with `messages()`. Add new text to both files instead of writing it inline.
+ - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `PhoneHint`, `LanguageSwitch`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
  - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useTour`, `useEscapeKey`).
- - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, and registering the offline service worker (`offline.ts`).
+ - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, the chosen language, and registering the offline service worker (`offline.ts`).
  - Tour steps live in `constants/tour.ts` and point at elements by their `data-tour` attribute; keep it when moving those elements.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions, and `explore.ts`
     for check-in distance, goals, badges, and weekly records; check-ins are the only thing that moves them).
-  - `constants/`, `types/`: shared labels and types.
+  - `constants/`, `types/`: shared constants (tour steps, emoji files) and types.
   - `preview/`: the walk preview film (`film.ts`, `flyoverMap.ts`), the illustrated fallback (`story.ts`),
     music, recording, and the recorded-video cache (`videoCache.ts`).
   - `styles/`: `App.css` and `glass-tokens.css`.

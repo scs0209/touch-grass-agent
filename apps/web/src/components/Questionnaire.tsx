@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import {
-  COMPANY_LABELS,
-  CYCLING_LABELS,
-  EMPTY_PREFERENCES,
-  INTEREST_LABELS,
-  PACE_LABELS,
-} from '../constants/preferences';
+import { EMPTY_PREFERENCES } from '../constants/preferences';
+import { useMessages } from '../i18n';
 import type { Interest, Preferences, SavedChoice } from '../types/preferences';
+import { LanguageSwitch } from './LanguageSwitch';
 
 interface ChoiceGroupProps<T extends string> {
   title: string;
@@ -50,6 +46,8 @@ export function Questionnaire({
   initial: SavedChoice | null;
   onDone: (choice: SavedChoice) => void;
 }) {
+  const t = useMessages();
+  const q = t.questionnaire;
   const [preferences, setPreferences] = useState<Preferences>(
     initial?.mode === 'custom' ? initial.preferences : EMPTY_PREFERENCES,
   );
@@ -64,43 +62,47 @@ export function Questionnaire({
 
   return (
     <main className="screen">
-      <h1>What do you like?</h1>
-      <p className="muted">A few quick picks help the suggestions fit you. Skip any question you like.</p>
+      <h1>{q.title}</h1>
+      <p className="muted">{q.intro}</p>
 
       <button className="secondary" onClick={() => onDone({ mode: 'ai' })} type="button">
-        Skip and let the AI decide everything
+        {q.skip}
       </button>
 
       <ChoiceGroup
-        title="How do you like to move?"
-        labels={PACE_LABELS}
+        title={q.pace}
+        labels={t.preferences.pace}
         isActive={(pace) => preferences.pace === pace}
         onToggle={(pace) => update({ pace: preferences.pace === pace ? null : pace })}
       />
       <ChoiceGroup
-        title="What do you enjoy?"
-        hint="Pick as many as you like."
-        labels={INTEREST_LABELS}
+        title={q.interests}
+        hint={q.interestsHint}
+        labels={t.preferences.interests}
         isActive={(interest) => preferences.interests.includes(interest)}
         onToggle={toggleInterest}
       />
       <ChoiceGroup
-        title="Who usually comes along?"
-        labels={COMPANY_LABELS}
+        title={q.company}
+        labels={t.preferences.company}
         isActive={(company) => preferences.company === company}
         onToggle={(company) => update({ company: preferences.company === company ? null : company })}
       />
       <ChoiceGroup
-        title="Public bikes?"
-        hint="Rides are suggested only if you pick yes (Seoul, 30 minutes or more). Otherwise you walk."
-        labels={CYCLING_LABELS}
+        title={q.cycling}
+        hint={q.cyclingHint}
+        labels={t.preferences.cycling}
         isActive={(answer) => cycling === answer}
         onToggle={(answer) => update({ cycling: cycling === answer ? null : answer === 'yes' })}
       />
 
       <button className="primary" onClick={() => onDone({ mode: 'custom', preferences })} type="button">
-        Save my picks
+        {q.save}
       </button>
+
+      <div className="footer-links">
+        <LanguageSwitch />
+      </div>
     </main>
   );
 }

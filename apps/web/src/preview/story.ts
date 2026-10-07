@@ -1,3 +1,4 @@
+import { messages } from '../i18n';
 import type { ThingScene } from '../types/api';
 import type { LatLon } from '../types/geo';
 import type { StoryInput } from '../types/preview';
@@ -594,8 +595,9 @@ function drawIntro(frame: Frame) {
     470 + Math.sin(frame.time * 2) * 10,
     size,
   );
-  const below = drawText(ctx, `Your next ${durationMin} minutes`, 720, { size: 66, scale: pop(frame, 0.2) });
-  drawText(ctx, `${Math.round(conditions.temperatureC)}° · ${conditions.description}`, below + 30, {
+  const { film, story: words, weather } = messages();
+  const below = drawText(ctx, film.nextMinutes(durationMin), 720, { size: 66, scale: pop(frame, 0.2) });
+  drawText(ctx, words.sky(Math.round(conditions.temperatureC), weather.describe(conditions.description)), below + 30, {
     size: 38,
     weight: 600,
     scale: pop(frame, 0.45),
@@ -618,7 +620,7 @@ function drawOutfit(frame: Frame) {
   drawSky(frame);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  drawText(ctx, `Dress for ${Math.round(conditions.feelsLikeC)}°`, 110, { size: 62, scale: pop(frame) });
+  drawText(ctx, messages().story.dressFor(Math.round(conditions.feelsLikeC)), 110, { size: 62, scale: pop(frame) });
   drawAvatar(frame, WIDTH / 2, 1040, 300, 'sway', pop(frame, 0.1));
 
   const items = outfitItems.slice(0, ITEM_SPOTS.length);
@@ -679,9 +681,11 @@ function project(points: LatLon[]) {
 function drawWalk(frame: Frame) {
   const { ctx, story, local, scene } = frame;
   const { input } = story;
+  const words = messages().story;
   const byBike = input.bikeStation !== null;
+  const stationName = input.bikeStation?.name ?? '';
   drawSky(frame);
-  drawText(ctx, `${byBike ? 'Ride' : 'Walk'} to ${input.placeName}`, 100, { size: 52, scale: pop(frame), maxLines: 2 });
+  drawText(ctx, words.goTo(byBike, input.placeName), 100, { size: 52, scale: pop(frame), maxLines: 2 });
 
   ctx.save();
   ctx.fillStyle = '#eef4e4';
@@ -772,19 +776,17 @@ function drawWalk(frame: Frame) {
   const distance = route?.distanceM ?? 2 * distanceM(input.origin, input.destination);
   const km = ((distance / 1000) * progress).toFixed(1);
   if (!route) {
-    drawText(ctx, `${km} km`, 1040, { size: 56 });
-    drawText(ctx, byBike ? `round trip · bike from ${input.bikeStation?.name}` : 'round trip', 1115, {
+    drawText(ctx, words.km(km), 1040, { size: 56 });
+    drawText(ctx, byBike ? words.roundTripBike(stationName) : words.roundTrip, 1115, {
       size: 32,
       weight: 600,
       maxLines: 2,
     });
     return;
   }
-  drawText(ctx, `${km} km · ${Math.round(route.durationMin * progress)} min`, 1040, { size: 56 });
+  drawText(ctx, words.progress(km, Math.round(route.durationMin * progress)), 1040, { size: 56 });
   const how =
-    route.mode === 'bike'
-      ? `${route.rideMin} min by bike from ${input.bikeStation?.name}, ${route.walkMin} on foot`
-      : 'round trip on foot';
+    route.mode === 'bike' ? words.rideAndWalk(route.rideMin, stationName, route.walkMin) : words.roundTripOnFoot;
   drawText(ctx, how, 1115, { size: 32, weight: 600, maxLines: 2 });
 }
 
@@ -796,7 +798,7 @@ function drawArrive(frame: Frame) {
   const walkIn = easeInOut(clamp01(local / (scene.length * 0.7)));
   drawAvatar(frame, -120 + walkIn * 480, 1160, 230, walkIn < 1 ? 'bob' : 'sway');
   const below = drawText(ctx, story.input.placeName, 170, { size: 72, scale: pop(frame), maxLines: 3 });
-  drawText(ctx, 'You made it.', below + 24, { size: 40, weight: 600, scale: pop(frame, 0.3) });
+  drawText(ctx, messages().story.madeIt, below + 24, { size: 40, weight: 600, scale: pop(frame, 0.3) });
 }
 
 const SCENE_EMOJI: Record<Exclude<ThingScene, 'sunset' | 'season'>, string> = {
@@ -834,7 +836,7 @@ function drawThing(frame: Frame) {
   else drawEmoji(ctx, SCENE_EMOJI[thing.scene], 520, 640 + bounce, size);
 
   const count = story.input.things.length;
-  drawText(ctx, `Once you're there · ${scene.index + 1}/${count}`, 90, { size: 28, weight: 600 });
+  drawText(ctx, messages().film.onceThereCount(scene.index + 1, count), 90, { size: 28, weight: 600 });
   drawText(ctx, thing.text, 145, { size: 54, scale: pop(frame), maxLines: 4 });
 }
 
@@ -846,12 +848,13 @@ function drawEnding(frame: Frame) {
   // The end-screen buttons cover roughly the bottom quarter of the frame.
   drawAvatar(frame, WIDTH / 2, 930, 240, 'sway', pop(frame));
   if (story.input.discovery) drawText(ctx, story.input.discovery, 90, { size: 28, weight: 600 });
-  const below = drawText(ctx, 'Ready when you are.', 140, { size: 66, scale: pop(frame) });
-  const next = drawText(ctx, `Leave now · back by ${story.backBy}`, below + 30, {
+  const { film, story: words } = messages();
+  const below = drawText(ctx, film.ready, 140, { size: 66, scale: pop(frame) });
+  const next = drawText(ctx, words.leaveNowBackBy(story.backBy), below + 30, {
     size: 40,
     weight: 700,
     scale: pop(frame, 0.3),
   });
   if (story.sunsetAt)
-    drawText(ctx, `Sunset at ${story.sunsetAt}`, next + 16, { size: 34, weight: 600, scale: pop(frame, 0.5) });
+    drawText(ctx, words.sunsetAt(story.sunsetAt), next + 16, { size: 34, weight: 600, scale: pop(frame, 0.5) });
 }

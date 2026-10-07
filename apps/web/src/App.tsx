@@ -1,6 +1,7 @@
 import { type SubmitEvent, useState } from 'react';
 import { CheckIn } from './components/CheckIn';
 import { ExploreLog } from './components/ExploreLog';
+import { LanguageSwitch } from './components/LanguageSwitch';
 import { PhoneHint } from './components/PhoneHint';
 import { Questionnaire } from './components/Questionnaire';
 import { RecentPlaces } from './components/RecentPlaces';
@@ -9,9 +10,11 @@ import { Tour } from './components/Tour';
 import { useExplorations } from './hooks/useExplorations';
 import { useRecentPlaces } from './hooks/useRecentPlaces';
 import { useRecommendation } from './hooks/useRecommendation';
+import { useMessages } from './i18n';
 import { loadChoice, saveChoice } from './services/choiceStorage';
 import { forgetTours } from './services/tourStorage';
 import type { SavedChoice } from './types/preferences';
+import { originLabel } from './utils/places';
 import { summarize } from './utils/preferences';
 
 const MINUTE_OPTIONS = [15, 30, 60];
@@ -25,6 +28,7 @@ export function App() {
   const [city, setCity] = useState('');
   const [choice, setChoice] = useState<SavedChoice | null>(loadChoice);
   const [editingChoice, setEditingChoice] = useState(false);
+  const { home } = useMessages();
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
   const recentPlaces = useRecentPlaces();
   const explorations = useExplorations(recentPlaces.places);
@@ -42,6 +46,12 @@ export function App() {
   };
   // Bumping it remounts the home tour, which then finds itself unseen and starts over.
   const [tourRun, setTourRun] = useState(0);
+
+  /** Messages already on screen stay in the language they were written in, so a switch clears them. */
+  function clearMessages() {
+    if (status.kind === 'error') reset();
+    if (explorations.checkIn.kind === 'error') explorations.dismiss();
+  }
 
   function replayTour() {
     forgetTours();
@@ -73,7 +83,7 @@ export function App() {
         // A new place starts a fresh card, with its own map and outfit choice, from the top of the page.
         key={`${status.result.place?.name}-${status.session.seen.length}`}
         result={status.result}
-        around={status.session.origin.label}
+        around={originLabel(status.session.origin)}
         finding={status.finding}
         notice={status.notice}
         visits={explorations.visits}
@@ -86,20 +96,20 @@ export function App() {
 
   return (
     <main className="screen">
-      <h1>Should I go out?</h1>
+      <h1>{home.title}</h1>
       <div className="choice-summary">
         <p className="muted small">{summarize(choice)}</p>
         <button className="edit-choice" onClick={() => setEditingChoice(true)} type="button">
-          <span aria-hidden="true">✎</span> Edit answers
+          <span aria-hidden="true">✎</span> {home.editAnswers}
         </button>
       </div>
 
       <CheckIn {...checkInProps} />
 
       <section className="panel" data-tour="minutes">
-        <p className="muted">How much time do you have?</p>
+        <p className="muted">{home.timeQuestion}</p>
 
-        <p className="minutes-value">{availableMinutes} min</p>
+        <p className="minutes-value">{home.minutes(availableMinutes)}</p>
         <input
           type="range"
           className="minutes-slider"
@@ -108,7 +118,7 @@ export function App() {
           step={MINUTE_STEP}
           value={availableMinutes}
           onChange={(event) => setAvailableMinutes(Number(event.target.value))}
-          aria-label="Available minutes"
+          aria-label={home.minutesSlider}
         />
 
         <div className="chips">
@@ -119,7 +129,7 @@ export function App() {
               onClick={() => setAvailableMinutes(minutes)}
               type="button"
             >
-              {minutes} min
+              {home.minutes(minutes)}
             </button>
           ))}
         </div>
@@ -132,16 +142,12 @@ export function App() {
         disabled={status.kind === 'loading'}
         type="button"
       >
-        Check right here
+        {home.checkHere}
       </button>
 
       <form className="city-form" data-tour="city" onSubmit={handleCitySubmit}>
-        <input
-          value={city}
-          onChange={(event) => setCity(event.target.value)}
-          placeholder="or type a city, e.g. Seoul"
-        />
-        <button type="submit">Go</button>
+        <input value={city} onChange={(event) => setCity(event.target.value)} placeholder={home.cityPlaceholder} />
+        <button type="submit">{home.go}</button>
       </form>
 
       {status.kind === 'loading' && (
@@ -162,9 +168,10 @@ export function App() {
 
       <div className="footer-links">
         <button className="link" onClick={replayTour} type="button">
-          How it works
+          {home.howItWorks}
         </button>
         <PhoneHint />
+        <LanguageSwitch onSwitch={clearMessages} />
       </div>
       <Tour key={tourRun} id="home" />
     </main>
