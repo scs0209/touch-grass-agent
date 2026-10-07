@@ -3,6 +3,16 @@
 :root {
   font-family: system-ui, -apple-system, sans-serif;
   color: #1f2a1f;
+  /* Tinted glass for the main actions, dense enough for white text to keep 4.5:1 over the light background. */
+  --glass-accent: rgba(47, 107, 58, 0.88);
+  --glass-accent-hover: rgba(47, 107, 58, 0.96);
+  --glass-dark: rgba(31, 42, 31, 0.85);
+  --glass-dark-hover: rgba(31, 42, 31, 0.95);
+  --glass-border-accent: 1px solid rgba(47, 107, 58, 0.45);
+  /* Green text on the bluest part of the page needs this much white behind it for 4.5:1. */
+  --glass-bg-button: rgba(255, 255, 255, 0.4);
+  /* The map and the film behind these are busy, so text needs denser glass than on the plain background. */
+  --glass-bg-dense: rgba(255, 255, 255, 0.72);
 }
 
 body {
@@ -53,15 +63,43 @@ input,
   border: var(--glass-border);
   border-radius: var(--glass-radius-lg);
   box-shadow: var(--glass-shadow);
+}
+
+.panel,
+.choice-summary {
   background: rgba(255, 255, 255, 0.85);
 }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .panel {
+  .panel,
+  .choice-summary {
     background: var(--glass-bg-heavy);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
   }
+}
+
+.secondary,
+.chip,
+.primary,
+.city-form button,
+.edit-choice,
+.recent-pick,
+.note,
+.preview-icon {
+  backdrop-filter: var(--glass-blur-light);
+  -webkit-backdrop-filter: var(--glass-blur-light);
+}
+
+.map-expand,
+.map-close,
+.map-caption,
+.preview-play {
+  border: var(--glass-border);
+  background: var(--glass-bg-dense);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .chips {
@@ -80,12 +118,18 @@ input,
 
 .secondary {
   padding: 14px;
-  border: 1px solid #2f6b3a;
+  border: var(--glass-border-accent);
   border-radius: var(--glass-radius);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--glass-bg-button);
+  box-shadow: var(--glass-shadow);
   color: #2f6b3a;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s;
+}
+
+.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .minutes-value {
@@ -115,23 +159,27 @@ input,
 }
 
 .chip.active {
-  background: #2f6b3a;
-  border-color: #2f6b3a;
+  background: var(--glass-accent);
   color: white;
 }
 
 .primary {
   display: block;
   padding: 16px;
-  border: none;
+  border: var(--glass-border);
   border-radius: var(--glass-radius);
-  background: #2f6b3a;
+  background: var(--glass-accent);
   box-shadow: var(--glass-shadow-elevated);
   color: white;
   font-weight: 600;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
+  transition: background 0.2s;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--glass-accent-hover);
 }
 
 .primary:disabled {
@@ -167,11 +215,17 @@ input,
 
 .city-form button {
   padding: 12px 16px;
-  border: none;
+  border: var(--glass-border);
   border-radius: var(--glass-radius);
-  background: #1f2a1f;
+  background: var(--glass-dark);
+  box-shadow: var(--glass-shadow);
   color: white;
   cursor: pointer;
+  transition: background 0.2s;
+}
+
+.city-form button:hover:not(:disabled) {
+  background: var(--glass-dark-hover);
 }
 
 .muted {
@@ -228,6 +282,7 @@ input,
 
 .things-to-do li {
   padding: 8px 12px;
+  border: var(--glass-border);
   border-radius: var(--glass-radius);
   background: rgba(47, 107, 58, 0.08);
 }
@@ -235,8 +290,9 @@ input,
 .note {
   margin: 0;
   padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: var(--glass-radius);
-  background: rgba(255, 244, 214, 0.85);
+  background: rgba(255, 244, 214, 0.55);
 }
 
 .weather-now {
@@ -389,10 +445,7 @@ input,
   bottom: 22px;
   z-index: 1;
   padding: 8px 12px;
-  border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
   color: #2f6b3a;
   font-weight: 700;
   font-size: 0.9rem;
@@ -418,10 +471,7 @@ input,
   z-index: 1;
   width: 44px;
   height: 44px;
-  border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
   color: #1d2a20;
   font-size: 1.1rem;
   cursor: pointer;
@@ -436,8 +486,6 @@ input,
   margin: 0;
   padding: 10px 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
   color: #1d2a20;
   font-size: 0.9rem;
 }
@@ -540,7 +588,7 @@ input,
   padding: 10px 12px;
   border: var(--glass-border);
   border-radius: var(--glass-radius);
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--glass-bg-heavy);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -549,7 +597,7 @@ input,
 }
 
 .recent-pick:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .recent-pick:disabled {
@@ -574,7 +622,7 @@ input,
 }
 
 .recent-remove:hover {
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--glass-bg-heavy);
   color: #a33b2b;
 }
 
@@ -586,7 +634,7 @@ input,
   padding: 10px 10px 10px 14px;
   border: var(--glass-border);
   border-radius: var(--glass-radius);
-  background: rgba(255, 255, 255, 0.45);
+  box-shadow: var(--glass-shadow);
 }
 
 .choice-summary p {
@@ -600,9 +648,9 @@ input,
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 1.5px solid #2f6b3a;
+  border: var(--glass-border-accent);
   border-radius: 999px;
-  background: white;
+  background: var(--glass-bg-button);
   color: #2f6b3a;
   font-size: 0.85rem;
   font-weight: 600;
@@ -614,7 +662,7 @@ input,
 }
 
 .edit-choice:hover {
-  background: #2f6b3a;
+  background: var(--glass-accent);
   color: white;
 }
 
@@ -624,8 +672,53 @@ input,
 }
 @media (prefers-reduced-transparency: reduce) {
   .panel,
-  .city-form input {
+  .choice-summary,
+  .city-form input,
+  .secondary,
+  .chip,
+  .edit-choice,
+  .recent-pick,
+  .map-expand,
+  .map-close,
+  .map-caption,
+  .preview-play {
     background: rgba(255, 255, 255, 0.92);
+  }
+
+  .note {
+    background: rgb(255, 244, 214);
+  }
+
+  .primary,
+  .chip.active,
+  .edit-choice:hover {
+    background: #2f6b3a;
+  }
+
+  .city-form button {
+    background: #1f2a1f;
+  }
+
+  .preview-icon {
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  .panel,
+  .choice-summary,
+  .city-form input,
+  .secondary,
+  .chip,
+  .primary,
+  .city-form button,
+  .edit-choice,
+  .recent-pick,
+  .note,
+  .map-expand,
+  .map-close,
+  .map-caption,
+  .preview-icon,
+  .preview-play,
+  .preview-backdrop {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -633,11 +726,31 @@ input,
 
 @media (prefers-contrast: more) {
   .panel,
+  .choice-summary,
   .chip,
   .outfit-card,
-  .city-form input {
+  .weather-tile,
+  .city-form input,
+  .secondary,
+  .edit-choice,
+  .recent-pick,
+  .map-expand,
+  .map-close,
+  .map-caption,
+  .preview-play {
     background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(0, 0, 0, 0.3);
+  }
+
+  .primary,
+  .chip.active,
+  .edit-choice:hover {
+    background: #2f6b3a;
+    border: 1px solid #1f2a1f;
+  }
+
+  .city-form button {
+    background: #1f2a1f;
   }
 }
 
@@ -652,6 +765,8 @@ input,
   display: grid;
   place-items: center;
   background: rgba(10, 16, 12, 0.9);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .preview-stage {
@@ -687,7 +802,7 @@ input,
 .preview-icon {
   width: 44px;
   height: 44px;
-  border: none;
+  border: var(--glass-border);
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.35);
   color: white;
@@ -711,9 +826,9 @@ input,
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 16px 28px;
-  border: none;
   border-radius: 999px;
-  background: white;
+  /* The film behind is dark, so green text needs nearly white glass for 4.5:1. */
+  background: rgba(255, 255, 255, 0.88);
   color: #2f6b3a;
   font-weight: 700;
   font-size: 1.1rem;
