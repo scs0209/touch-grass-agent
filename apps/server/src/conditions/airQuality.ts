@@ -1,6 +1,6 @@
 import { createCache } from '../cache.js';
 import { gridKey } from '../geo.js';
-import { CONDITIONS_STALE_MS, CONDITIONS_TTL_MS } from './weather.js';
+import { CONDITIONS_STALE_MS, CONDITIONS_TTL_MS, fetchOpenMeteo } from './weather.js';
 
 /** The air quality model's grid is about 11 km, and it updates hourly. */
 const readings = createCache<AirQuality>({ ttlMs: CONDITIONS_TTL_MS, staleMs: CONDITIONS_STALE_MS });
@@ -38,9 +38,7 @@ async function fetchAirQuality(lat: number, lon: number): Promise<AirQuality> {
     timezone: 'auto',
   }).toString();
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`Open-Meteo air quality failed: ${response.status}`);
-  const { current } = (await response.json()) as OpenMeteoAirQuality;
+  const { current } = await fetchOpenMeteo<OpenMeteoAirQuality>(url, 'air quality');
 
   return {
     pm10: current.pm10,

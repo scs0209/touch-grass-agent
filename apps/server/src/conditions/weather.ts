@@ -8,6 +8,40 @@ export const CONDITIONS_STALE_MS = 30 * 60 * 1000;
 
 const forecasts = createCache<Weather>({ ttlMs: CONDITIONS_TTL_MS, staleMs: CONDITIONS_STALE_MS });
 
+/** Open-Meteo answers in about a second; a request still hanging after 5 rarely finishes, but a new one usually does. */
+const ATTEMPT_TIMEOUT_MS = 5000;
+const RETRY_DELAY_MS = 500;
+
+class OpenMeteoError extends Error {
+  constructor(
+    name: string,
+    readonly status: number,
+  ) {
+    super(`Open-Meteo ${name} failed: ${status}`);
+  }
+}
+
+async function attempt<T>(url: URL, name: string): Promise<T> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) });
+  if (!response.ok) throw new OpenMeteoError(name, response.status);
+  return (await response.json()) as T;
+}
+
+/**
+ * Retries once after a timeout, a network error, or a server error, which cover the brief stalls seen from
+ * Open-Meteo. Other 4xx answers mean the request itself is wrong, so they fail at once.
+ */
+export async function fetchOpenMeteo<T>(url: URL, name: string): Promise<T> {
+  try {
+    return await attempt<T>(url, name);
+  } catch (error) {
+    if (error instanceof OpenMeteoError && error.status !== 429 && error.status < 500) throw error;
+    console.warn(`Retrying Open-Meteo ${name}: ${error instanceof Error ? error.message : error}`);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    return attempt<T>(url, name);
+  }
+}
+
 const WMO_DESCRIPTIONS: Record<number, string> = {
   0: 'clear sky',
   1: 'mainly clear',
@@ -101,9 +135,7 @@ async function fetchWeather(lat: number, lon: number): Promise<Weather> {
     timezone: 'auto',
   }).toString();
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`Open-Meteo forecast failed: ${response.status}`);
-  const data = (await response.json()) as OpenMeteoForecast;
+  const data = await fetchOpenMeteo<OpenMeteoForecast>(url, 'forecast');
 
   const { current } = data;
   const sunset = data.daily.sunset[0];
