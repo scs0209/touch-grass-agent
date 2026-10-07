@@ -48,6 +48,7 @@ export function useRecommendation(
       ...details,
       city: place.city ?? session.origin.city,
       origin: session.origin,
+      byBike: result.route?.mode === 'bike',
       viewedAt: Date.now(),
     });
     return { ...session, seen: [...session.seen, place.name], lastKind: place.kind };

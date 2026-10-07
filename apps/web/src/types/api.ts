@@ -47,7 +47,7 @@ export interface SuggestedPlace extends NamedPoint {
 export interface PlaceSearch {
   excludePlaces?: string[];
   varyFrom?: PlaceKind | null;
-  place?: Omit<SuggestedPlace, 'features'> | null;
+  place?: (Omit<SuggestedPlace, 'features'> & { byBike?: boolean }) | null;
 }
 
 export interface RecommendResponse {

@@ -111,7 +111,10 @@ async function findParks(
   stations: Promise<BikeStation[] | null>,
   { excludePlaces = [], varyFrom = null, place }: PlaceSearch,
 ): Promise<Park[]> {
-  if (place) return pinnedPark(origin, place, availableMinutes);
+  if (place) {
+    const station = place.byBike ? firstStationWithBikes(await stations) : undefined;
+    return pinnedPark(origin, place, availableMinutes, station);
+  }
   const walkRadius = walkableRadiusM(availableMinutes);
   const walkPlaces = await placesInTurn(origin, walkRadius, varyFrom, { label: 'walkable', exclude: excludePlaces });
   const station = firstStationWithBikes(await stations);
@@ -127,10 +130,19 @@ async function findParks(
   return withDetails(origin, walkPlaces, station ? { station, places: newRidePlaces } : null, availableMinutes);
 }
 
-/** A place picked again from the recent places, walked to even when it takes longer than the time set now. */
-function pinnedPark(origin: LatLon, pinned: PinnedPlace, availableMinutes: number): Promise<Park[]> {
-  const place: Place = {
-    id: `${ID_PREFIX[pinned.kind]}1`,
+/**
+ * A place picked again from the recent places, kept even when the trip takes longer than the time set now.
+ * A former bike trip is ridden from the station when one has bikes; otherwise, or when the ride can't be
+ * measured, it is walked.
+ */
+async function pinnedPark(
+  origin: LatLon,
+  pinned: PinnedPlace,
+  availableMinutes: number,
+  station: BikeStation | undefined,
+): Promise<Park[]> {
+  const place = (id: string): Place => ({
+    id,
     name: pinned.name,
     kind: pinned.kind,
     lat: pinned.lat,
@@ -138,8 +150,14 @@ function pinnedPark(origin: LatLon, pinned: PinnedPlace, availableMinutes: numbe
     distanceMeters: Math.round(distanceInMeters(origin, pinned)),
     city: pinned.city ?? null,
     area: pinned.area ?? null,
-  };
-  return withDetails(origin, [place], null, availableMinutes, { keepWalks: true });
+  });
+  if (station) {
+    const ridden = await withDetails(origin, [], { station, places: [place('B1')] }, availableMinutes, {
+      keepAll: true,
+    });
+    if (ridden.length > 0) return ridden;
+  }
+  return withDetails(origin, [place(`${ID_PREFIX[pinned.kind]}1`)], null, availableMinutes, { keepAll: true });
 }
 
 async function withDetails(
@@ -147,7 +165,7 @@ async function withDetails(
   walkPlaces: Place[],
   ride: { station: BikeStation; places: Place[] } | null,
   availableMinutes: number,
-  { keepWalks = false }: { keepWalks?: boolean } = {},
+  { keepAll = false }: { keepAll?: boolean } = {},
 ): Promise<Park[]> {
   const ridePlaces = ride?.places ?? [];
   const places = [...walkPlaces, ...ridePlaces];
@@ -170,7 +188,7 @@ async function withDetails(
       bikeOnly: false,
       bikeTripMin: null,
     }))
-    .filter((park) => keepWalks || park.roundTripMin === null || park.roundTripMin <= availableMinutes);
+    .filter((park) => keepAll || park.roundTripMin === null || park.roundTripMin <= availableMinutes);
   // A bike-only park that couldn't be measured might not fit at all, so it is left out.
   const rideParks = ridePlaces
     .map((place, index) => ({
@@ -180,7 +198,7 @@ async function withDetails(
       bikeOnly: true,
       bikeTripMin: rides?.[index].durationMin ?? null,
     }))
-    .filter((park) => park.bikeTripMin !== null && park.bikeTripMin <= availableMinutes)
+    .filter((park) => park.bikeTripMin !== null && (keepAll || park.bikeTripMin <= availableMinutes))
     .slice(-MAX_BIKE_ONLY_PARKS);
   return [...walkParks, ...rideParks];
 }
@@ -192,8 +210,9 @@ export async function getConditions(
   search: PlaceSearch = {},
 ): Promise<Conditions> {
   // Riding is a matter of taste, so bikes come up only for people who said yes on the questionnaire.
+  // A former bike trip picked again is ridden whatever the time, like a picked place is walked.
   const stations =
-    preferences?.cycling === true && availableMinutes >= MIN_BIKE_MINUTES
+    preferences?.cycling === true && (availableMinutes >= MIN_BIKE_MINUTES || search.place?.byBike)
       ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
       : Promise.resolve(null);
   const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
@@ -571,8 +590,8 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   // and someone who asked for another place shouldn't get a walk around the block instead.
   const needsListedPark = PARK_WORDS.test(modelActivity) || conditions.mustPickPlace;
   const unlistedPark =
-    recommendation.verdict === 'go' && !modelPark && !stationAllowed && needsListedPark
-      ? preferredPark(conditions)
+    recommendation.verdict === 'go' && !modelPark && needsListedPark && (!stationAllowed || conditions.mustPickPlace)
+      ? (preferredPark(conditions, stationAllowed) ?? preferredPark(conditions, true))
       : undefined;
   const switchedPark = matchingPark ?? unlistedPark;
   const park = switchedPark ?? modelPark;

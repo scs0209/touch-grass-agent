@@ -35,6 +35,8 @@ export const recommendRequestSchema = latLonSchema.extend({
       kind: placeKindSchema.default('park'),
       city: z.string().max(200).nullish(),
       area: z.string().max(200).nullish(),
+      /** It was a public bike trip then, so it is ridden again when a nearby station has bikes. */
+      byBike: z.boolean().default(false),
     })
     .nullish(),
 });

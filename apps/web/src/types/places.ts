@@ -17,6 +17,8 @@ export interface RecentPlace extends LatLon {
   area: string | null;
   /** Where the walk started when it was suggested; picking it again starts there. */
   origin: SearchOrigin;
+  /** It was a public bike trip, so picking it again rides when a station nearby has bikes. Missing in older saves. */
+  byBike?: boolean;
   /** When it was last suggested, in milliseconds since the epoch. */
   viewedAt: number;
 }
