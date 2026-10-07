@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { CheckInStatus } from '../hooks/useExplorations';
 import { useMessages } from '../i18n';
@@ -75,7 +76,8 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
     closeRef.current?.focus();
   }, []);
 
-  return (
+  // The panel's backdrop-filter would trap a fixed overlay inside the panel, so it renders on body.
+  return createPortal(
     <div className="dialog-backdrop">
       <div className="panel arrival" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
         <p className="verdict">{t.madeIt}</p>
@@ -112,6 +114,7 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
           {t.putPhoneAway}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
