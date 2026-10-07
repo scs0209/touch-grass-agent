@@ -1,10 +1,11 @@
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
+import { useStreetAddress } from '../hooks/useStreetAddress';
 import { useMessages } from '../i18n';
 import type { RecommendResponse } from '../types/api';
 import type { Visit } from '../types/explore';
 import type { Fit, Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
-import { directionsUrl } from '../utils/directions';
+import { directionsUrl, inKorea } from '../utils/directions';
 import { discoveryLabel, placeNote } from '../utils/explore';
 import { placeArea } from '../utils/places';
 import { describeRoute, storyInput } from '../utils/result';
@@ -51,8 +52,12 @@ export function ResultCard({
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
+  // Only Kakao Map names the start; Google Maps starts from where the phone is.
+  const namesStart = isGo && destination !== null && startCity === null && inKorea(destination);
+  const startAddress = useStreetAddress(namesStart ? origin : null);
   const directions =
-    destination && directionsUrl({ origin, startCity, destination, bikeStation: place ? bikeStation : null });
+    destination &&
+    directionsUrl({ origin, startCity, startAddress, destination, bikeStation: place ? bikeStation : null });
   const routeCaption = describeRoute(result);
   const note = place && placeNote(visits, place);
 

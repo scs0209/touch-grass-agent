@@ -50,6 +50,8 @@ export type PinnedPlace = NonNullable<RecommendRequest['place']>;
 
 export const geocodeQuerySchema = z.string().trim().min(1).max(100);
 
+export const streetAddressQuerySchema = z.object({ lat: z.coerce.number(), lon: z.coerce.number() }).pipe(latLonSchema);
+
 export const tripPhotosRequestSchema = z.object({
   /** Where the route meets the park; the same as destination when there is no route. */
   entrance: latLonSchema,

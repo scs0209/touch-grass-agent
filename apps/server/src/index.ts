@@ -2,9 +2,14 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { OLLAMA_MODEL } from './agent.js';
 import { fetchTripPhoto, getTripPhotos, PHOTO_CACHE_MS } from './conditions/photos.js';
-import { geocodeCity } from './conditions/places.js';
+import { geocodeCity, streetAddress } from './conditions/places.js';
 import { recommend } from './mastra.js';
-import { geocodeQuerySchema, recommendRequestSchema, tripPhotosRequestSchema } from './schema.js';
+import {
+  geocodeQuerySchema,
+  recommendRequestSchema,
+  streetAddressQuerySchema,
+  tripPhotosRequestSchema,
+} from './schema.js';
 
 const app = new Hono();
 
@@ -32,6 +37,18 @@ app.get('/api/geocode', async (c) => {
   } catch (error) {
     console.error(error);
     return c.json({ error: 'Could not look up the city' }, 502);
+  }
+});
+
+app.get('/api/street-address', async (c) => {
+  const parsed = streetAddressQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) return c.json({ error: 'Invalid location' }, 400);
+
+  try {
+    return c.json({ address: await streetAddress(parsed.data) });
+  } catch (error) {
+    console.error(error);
+    return c.json({ address: null });
   }
 });
 

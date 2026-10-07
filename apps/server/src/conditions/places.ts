@@ -60,15 +60,15 @@ async function waitForNominatim() {
   if (startAt > now) await sleep(startAt - now);
 }
 
-async function fetchNominatim(url: URL): Promise<NominatimResult[]> {
+async function fetchNominatim<T = NominatimResult[]>(url: URL, language = 'en,ko'): Promise<T> {
   await waitForNominatim();
   // Nominatim's usage policy requires an identifying User-Agent.
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'touch-grass-agent/0.1', 'Accept-Language': 'en,ko' },
+    headers: { 'User-Agent': 'touch-grass-agent/0.1', 'Accept-Language': language },
     signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) throw new Error(`Nominatim failed: ${response.status}`);
-  return (await response.json()) as NominatimResult[];
+  return (await response.json()) as T;
 }
 
 const searchNominatim = (url: URL) => searches.getOrLoad(url.toString(), () => fetchNominatim(url));
@@ -88,6 +88,31 @@ export async function geocodeCity(name: string): Promise<LatLon | null> {
   url.search = new URLSearchParams({ q: name, format: 'jsonv2', limit: '1' }).toString();
   const [result] = await searchNominatim(url);
   return result ? { lat: Number(result.lat), lon: Number(result.lon) } : null;
+}
+
+/** About 11 m, closer than a phone's location is usually accurate. */
+const ADDRESS_DECIMALS = 4;
+const addresses = createCache<string | null>({ ttlMs: SEARCH_CACHE_MS });
+
+/**
+ * A short street address for where someone is, e.g. "마포구 월드컵북로2길 11", to name the start of the directions.
+ * The nearest shop or bus stop that Nominatim also names isn't used, since it reads as if the person were in it.
+ */
+export function streetAddress({ lat, lon }: LatLon): Promise<string | null> {
+  const url = new URL('https://nominatim.openstreetmap.org/reverse');
+  url.search = new URLSearchParams({
+    lat: lat.toFixed(ADDRESS_DECIMALS),
+    lon: lon.toFixed(ADDRESS_DECIMALS),
+    format: 'jsonv2',
+    zoom: '18',
+    addressdetails: '1',
+  }).toString();
+  return addresses.getOrLoad(url.toString(), async () => {
+    const { address = {} } = await fetchNominatim<Pick<NominatimResult, 'address'>>(url, 'ko,en');
+    const district = areaOf(address) ?? cityOf(address);
+    const street = address.road ? [address.road, address.house_number].filter(Boolean).join(' ') : address.suburb;
+    return [district, street].filter(Boolean).join(' ') || null;
+  });
 }
 
 /** Straight-line radius reachable on a round trip within the available time. */

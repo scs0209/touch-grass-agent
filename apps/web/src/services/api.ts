@@ -46,6 +46,19 @@ export async function geocodeOnServer(name: string): Promise<LatLon | null> {
   }
 }
 
+/** A short street address from the server's Nominatim lookup; null when there is none or the server can't be reached. */
+export async function fetchStreetAddress({ lat, lon }: LatLon, signal: AbortSignal): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/street-address?${new URLSearchParams({ lat: String(lat), lon: String(lon) })}`, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(GEOCODE_TIMEOUT_MS)]),
+    });
+    if (!response.ok) return null;
+    return ((await response.json()) as { address: string | null }).address;
+  } catch {
+    return null;
+  }
+}
+
 interface TripPhotosRequest {
   /** Where the route reaches the park. */
   entrance: LatLon;

@@ -9,6 +9,8 @@ interface Trip {
   origin: LatLon;
   /** The city searched from; null when starting from the person's location. */
   startCity: string | null;
+  /** The street address of the person's location, for naming the start on Kakao Map. */
+  startAddress: string | null;
   destination: Stop;
   /** Set on a bike trip, which goes through the station where the bike is rented. */
   bikeStation: NamedPoint | null;
@@ -25,7 +27,7 @@ const TSUSHIMA = { south: 34, north: 34.75, west: 129.15, east: 129.6 };
 type Bounds = (typeof KOREA)[number];
 const within = ({ lat, lon }: LatLon, box: Bounds) =>
   lat >= box.south && lat <= box.north && lon >= box.west && lon <= box.east;
-const inKorea = (point: LatLon) => KOREA.some((box) => within(point, box)) && !within(point, TSUSHIMA);
+export const inKorea = (point: LatLon) => KOREA.some((box) => within(point, box)) && !within(point, TSUSHIMA);
 
 /** Ddareungi station names start with the station number, e.g. "102. 망원역 1번출구 앞". */
 const withoutNumber = (name: string) => name.replace(/^\d+\.\s*/, '');
@@ -35,8 +37,8 @@ const kakaoStop = (name: string, { lat, lon }: LatLon) =>
   [withoutNumber(name).replace(/[,/]/g, ' '), lat, lon].map((part) => encodeURIComponent(part)).join(',');
 
 /** Google Maps has no walking or cycling directions in Korea; Kakao Map takes each stop's name and exact spot. */
-function kakaoUrl({ origin, startCity, destination, bikeStation }: Trip) {
-  const start = kakaoStop(startCity ?? messages().hereLabel, origin);
+function kakaoUrl({ origin, startCity, startAddress, destination, bikeStation }: Trip) {
+  const start = kakaoStop(startCity ?? startAddress ?? messages().hereLabel, origin);
   const station = bikeStation ? [kakaoStop(bikeStation.name, bikeStation)] : [];
   const stops = [start, ...station, kakaoStop(destination.name, destination)];
   return `https://map.kakao.com/link/by/${bikeStation ? 'bicycle' : 'walk'}/${stops.join('/')}`;
