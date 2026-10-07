@@ -161,9 +161,9 @@ changed since the README was last checked and `README.md` wasn't touched.
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
-  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
-  - `hooks/`: React logic used by screens (`useRecommendation`, `useEscapeKey`).
-  - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers.
+ - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
+ - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useEscapeKey`).
+ - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions).
   - `constants/`, `types/`: shared labels and types.
   - `preview/`: the walk preview film (`film.ts`, `flyoverMap.ts`), the illustrated fallback (`story.ts`),
