@@ -152,6 +152,8 @@ After any change to behavior, setup, environment variables, data sources, or the
   behavior go in `docs/how-it-works.md`, under the section for that part of the app.
 - Screenshots and the demo GIF in `docs/`: recapture them when the screen they show has changed.
   Use headless Chrome at 430×860 with device scale 2 (860×1720 PNGs), and keep the alt text accurate.
+  `docs/cover.png` is drawn from `docs/cover.html` with `result.png`, `arrival.png`, and `map-full.png`; after
+  recapturing those, render it again at 1000×420 with device scale 2 (`--allow-file-access-from-files`).
 - Commit README changes with the change they describe, or as a `docs:` commit right after it, then push.
 - If the README is still accurate after a code change, record that you checked it:
   `git rev-parse HEAD > .git/readme-checked`

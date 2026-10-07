@@ -1,5 +1,7 @@
 # Should I go out?
 
+![Should I go out? with the grass logo: one tap, one outdoor plan from a local Gemma, then put your phone away. Three phone screens show a suggested walk to 서소문근린공원, the You made it check-in at Tapgol Park, and the route map to Cheonggyecheon Stream Park](docs/cover.png)
+
 One tap, one suggestion, then put your phone away.
 
 <p align="center">
