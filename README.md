@@ -140,3 +140,7 @@ Without Entire installed, the Entire hooks do nothing. Cursor (`.cursor/hooks.js
 - Walk preview photos: street-level photos of the park by [Mapillary](https://www.mapillary.com) contributors (CC BY-SA 4.0) and park photos from [Wikimedia Commons](https://commons.wikimedia.org) under each author's license; the film's last shot names the map sources, photographers, and licenses.
 - Walk preview editing: the photo cards, word-by-word titles, underline and chip end card, reading-time and shot-length rules follow the editing ideas in [OpenMontage](https://github.com/calesthio/OpenMontage) (AGPL-3.0); no code was copied, and the film is still drawn on a canvas in the browser.
 - Model (suggestions and their Korean translation): [Gemma](https://ai.google.dev/gemma) by Google, under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
+
+## License
+
+[MIT](LICENSE). The borrowed files above keep their own licenses, and Gemma's weights stay under the Gemma Terms of Use.
