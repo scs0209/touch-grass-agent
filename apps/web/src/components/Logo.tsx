@@ -1,0 +1,13 @@
+/** The mark from `public/favicon.svg`, drawn inline because the offline copy of the app doesn't keep public files. */
+export function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <rect width="64" height="64" rx="14" fill="#2f6b3a" />
+      <g fill="#fff">
+        <path d="M32 53C26 41 27 25 32 10C37 25 38 41 32 53Z" />
+        <path d="M29 53C24 44 18 37 9 32C21 32 28 41 29 53Z" />
+        <path d="M35 53C40 44 46 37 55 32C43 32 36 41 35 53Z" />
+      </g>
+    </svg>
+  );
+}

@@ -49,6 +49,18 @@ h1 {
   line-height: 1.2;
 }
 
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
 button,
 input,
 .primary {

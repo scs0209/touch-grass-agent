@@ -3,7 +3,7 @@
 One tap, one suggestion, then put your phone away.
 
 <p align="center">
-  <img src="docs/demo.gif" width="300" alt="Answering the questionnaire (easy and relaxed, greenery and water, with kids, walking only), choosing 60 minutes in Seoul, getting a walk to 청계천 한빛광장, tapping Another place to get Gyeonghuigung Palace instead, the weather, a route map opened full screen and closed again, switching the outfit for people who run cold, then back on the home screen checking in at Gyeonghuigung Palace with I'm here, the You made it dialog with the goal ticked off and things to do, and the place added to Your explorations">
+  <img src="docs/demo.gif" width="300" alt="Answering the questionnaire (easy and relaxed, greenery and water, with kids, walking only), choosing 60 minutes in Seoul, getting a walk to 청계천 한빛광장, tapping Another place to get Namsangol Hanok Village instead, the weather, a route map opened full screen and closed again, switching the outfit for people who run cold, then back on the home screen checking in at Namsangol Hanok Village with I'm here, the You made it dialog with the goal ticked off and things to do, and the place added to Your explorations">
   <img src="docs/preview.gif" width="270" alt="Highlights of the walk preview video: a 3D map of central Seoul with your next 11 minutes and what to wear, a green location puck walking the route to Cheonggyecheon Stream Park past 3D buildings, photos of the park as cards over a soft blurred copy with a thing to do under each, and a pull-back over the neighborhood with Ready when you are, a green underline, and when to leave and be back">
 </p>
 
@@ -11,7 +11,7 @@ One tap, one suggestion, then put your phone away.
   <tr>
     <td align="center" width="33%"><img src="docs/questionnaire.png" width="240" alt="First-visit questionnaire with a button to let the AI decide everything"><br><sub>Pick what you like, or skip</sub></td>
     <td align="center" width="33%"><img src="docs/tour.png" width="240" alt="Step 2 of 4 of the home tour: the screen is dimmed except the Check right here button, and a card pointing at it says Gemma, running locally, checks the weather, the air, and the parks near you, and picks one place, with Skip, Back, and Next"><br><sub>A short tour of each part</sub></td>
-    <td align="center" width="33%"><img src="docs/home.png" width="240" alt="Home screen with a summary of the saved answers, an Edit answers button, an Out exploring card asking whether you made it to Tapgol Park with an I'm here button, the time slider, Seoul typed in the city box, and the top of Your explorations"><br><sub>Home: time, city, check-in</sub></td>
+    <td align="center" width="33%"><img src="docs/home.png" width="240" alt="Home screen with the grass logo next to the title, a summary of the saved answers, an Edit answers button, an Out exploring card asking whether you made it to Tapgol Park with an I'm here button, the time slider, Seoul typed in the city box, and the top of Your explorations"><br><sub>Home: time, city, check-in</sub></td>
   </tr>
   <tr>
     <td align="center" width="33%"><img src="docs/result.png" width="240" alt="Suggested walk to 서소문근린공원 in Jung-gu, Seoul, marked New place for you, with things to do there, an Another place button to try somewhere else around Seoul, the Preview your walk button, and the weather panel"><br><sub>One suggestion with things to do</sub></td>

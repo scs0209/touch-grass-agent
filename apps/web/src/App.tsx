@@ -2,6 +2,7 @@ import { type SubmitEvent, useState } from 'react';
 import { CheckIn } from './components/CheckIn';
 import { ExploreLog } from './components/ExploreLog';
 import { LanguageSwitch } from './components/LanguageSwitch';
+import { Logo } from './components/Logo';
 import { PhoneHint } from './components/PhoneHint';
 import { Questionnaire } from './components/Questionnaire';
 import { RecentPlaces } from './components/RecentPlaces';
@@ -96,7 +97,10 @@ export function App() {
 
   return (
     <main className="screen">
-      <h1>{home.title}</h1>
+      <h1 className="app-title">
+        <Logo />
+        {home.title}
+      </h1>
       <div className="choice-summary">
         <p className="muted small">{summarize(choice)}</p>
         <button className="edit-choice" onClick={() => setEditingChoice(true)} type="button">
