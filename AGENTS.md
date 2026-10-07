@@ -40,7 +40,20 @@ It is a pnpm monorepo: `apps/server` (Hono + Mastra, port 8787) and `apps/web` (
      `curl -s -X POST localhost:8787/api/recommend -H 'content-type: application/json' -d '{"lat":37.566,"lon":126.9784,"availableMinutes":60,"preferences":null}'`
      The first answer can take 10 to 20 seconds while Gemma loads.
    - Tell the user to open http://localhost:5173. The first visit shows the questionnaire.
-7. **Optional: agent session records.** Sessions are recorded with Entire into a private repository
+7. **Optional: use it on a phone.** Gemma runs on this Mac, and the app is meant to be taken outside, so
+   ask the user whether they want to open it on their phone. A phone can only reach it through Tailscale,
+   which also gives the HTTPS address that location and offline check-ins need (see "Use it on your phone"
+   in `README.md`). If they want it:
+   - Check `tailscale version` (or `/Applications/Tailscale.app/Contents/MacOS/Tailscale version`). If
+     neither works, ask the user to install Tailscale on the Mac and the phone from
+     https://tailscale.com/download and sign in to the same personal account on both. The Personal plan is
+     free; a work email with a company domain starts a business trial instead.
+   - Stop `pnpm dev`, start `pnpm phone` in the background, and check that
+     `curl -s 127.0.0.1:4173/api/health` returns the same answer as above.
+   - Run `tailscale serve --bg 4173`. The first time, it prints a link to turn on HTTPS certificates; give
+     the link to the user. `tailscale serve status` then shows the `https://<mac>.<tailnet>.ts.net` address;
+     tell the user to open it on the phone and keep the Mac awake for suggestions.
+8. **Optional: agent session records.** Sessions are recorded with Entire into a private repository
    (see "Agent sessions" in `README.md`). Only set this up if the user has access to
    `scs0209/touch-grass-agent-checkpoints`: `brew install --cask entireio/tap/entire`, then
    `entire enable --agent cursor` (or `claude-code`, `codex`). The hooks for all three agents are
@@ -165,9 +178,9 @@ changed since the README was last checked and `README.md` wasn't touched.
   rerun `node scripts/bench/compare.mjs <before> <after>` and update the page, its chart, and its raw results.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
- - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
+ - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `PhoneHint`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
  - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useTour`, `useEscapeKey`).
- - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, and registering the offline service worker (`offline.ts`).
+ - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, the hidden phone tip, and registering the offline service worker (`offline.ts`).
  - Tour steps live in `constants/tour.ts` and point at elements by their `data-tour` attribute; keep it when moving those elements.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions, and `explore.ts`
     for check-in distance, goals, badges, and weekly records; check-ins are the only thing that moves them).
@@ -177,4 +190,5 @@ changed since the README was last checked and `README.md` wasn't touched.
   - `styles/`: `App.css` and `glass-tokens.css`.
 - `apps/web/public/sw.js`: the service worker that keeps the built app usable offline for check-ins. It never caches
   `/api`. `pnpm phone` builds the app and serves it on 127.0.0.1:4173 for `tailscale serve` (see "Use it on your
-  phone" in `README.md`); the service worker only runs in that build, not in `pnpm dev`.
+  phone" in `README.md`); the service worker only runs in that build, not in `pnpm dev`. `scripts/phone-hint.mjs`
+  prints the Tailscale next step when `pnpm phone` starts.

@@ -610,7 +610,8 @@ input,
   overflow-wrap: anywhere;
 }
 
-.recent-remove {
+.recent-remove,
+.phone-hint-close {
   flex-shrink: 0;
   width: 40px;
   border: none;
@@ -621,9 +622,46 @@ input,
   cursor: pointer;
 }
 
-.recent-remove:hover {
+.recent-remove:hover,
+.phone-hint-close:hover {
   background: var(--glass-bg-heavy);
   color: #a33b2b;
+}
+
+.phone-hint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phone-hint h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.phone-hint ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-hint code {
+  font-size: 0.8rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(47, 107, 58, 0.1);
+  white-space: nowrap;
+}
+
+.phone-hint a {
+  color: #2f6b3a;
+}
+
+.phone-hint .link {
+  align-self: flex-start;
+  padding: 0;
 }
 
 .tour {

@@ -1,6 +1,7 @@
 import { type SubmitEvent, useState } from 'react';
 import { CheckIn } from './components/CheckIn';
 import { ExploreLog } from './components/ExploreLog';
+import { PhoneHint } from './components/PhoneHint';
 import { Questionnaire } from './components/Questionnaire';
 import { RecentPlaces } from './components/RecentPlaces';
 import { ResultCard } from './components/ResultCard';
@@ -158,6 +159,8 @@ export function App() {
         onPick={(place) => void recommendRecent(place)}
         onRemove={recentPlaces.remove}
       />
+
+      <PhoneHint />
 
       <button className="link" onClick={replayTour} type="button">
         How it works
