@@ -1,3 +1,4 @@
+import { createCache } from '../cache.js';
 import type { LatLon } from '../geo.js';
 
 export type Feature =
@@ -30,13 +31,18 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const RADIUS_M = 150;
 /** Park facilities rarely change, and the shared Overpass server is slow and rate limited. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * Suggestions wait only 3 seconds for features, but the shared server often takes 10 or more; letting a
+ * slow answer finish still caches it for the next request instead of asking again every time.
+ */
+const QUERY_TIMEOUT_S = 25;
 
 interface OverpassElement {
   type: string;
   tags?: Record<string, string>;
 }
 
-const cache = new Map<string, { features: Promise<Feature[]>; expiresAt: number }>();
+const cache = createCache<Feature[]>({ ttlMs: CACHE_TTL_MS, maxEntries: 2000 });
 const cacheKey = ({ lat, lon }: LatLon) => `${lat},${lon}`;
 
 function featureOf(tags: Record<string, string>) {
@@ -59,9 +65,9 @@ async function fetchFeatures(parks: LatLon[]): Promise<Feature[][]> {
 
   const response = await fetch(OVERPASS_URL, {
     method: 'POST',
-    body: new URLSearchParams({ data: `[out:json][timeout:8];${queries}` }),
+    body: new URLSearchParams({ data: `[out:json][timeout:${QUERY_TIMEOUT_S}];${queries}` }),
     headers: { 'User-Agent': 'touch-grass-agent/0.1' },
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout((QUERY_TIMEOUT_S + 5) * 1000),
   });
   if (!response.ok) throw new Error(`Overpass failed: ${response.status}`);
   const { elements } = (await response.json()) as { elements: OverpassElement[] };
@@ -81,26 +87,16 @@ async function fetchFeatures(parks: LatLon[]): Promise<Feature[][]> {
 }
 
 function remember(parks: LatLon[]): Promise<Feature[]>[] {
-  const now = Date.now();
-  for (const [key, entry] of cache) if (entry.expiresAt <= now) cache.delete(key);
-
   const all = fetchFeatures(parks);
-  return parks.map((park, index) => {
-    const key = cacheKey(park);
-    const features = all.then((lists) => lists[index]);
-    cache.set(key, { features, expiresAt: now + CACHE_TTL_MS });
-    // Forget failures so the next request asks Overpass again.
-    features.catch(() => {
-      if (cache.get(key)?.features === features) cache.delete(key);
-    });
-    return features;
-  });
+  return parks.map((park, index) =>
+    cache.set(
+      cacheKey(park),
+      all.then((lists) => lists[index]),
+    ),
+  );
 }
 
-function cached(park: LatLon) {
-  const entry = cache.get(cacheKey(park));
-  return entry && entry.expiresAt > Date.now() ? entry.features : undefined;
-}
+const cached = (park: LatLon) => cache.peek(cacheKey(park));
 
 /** Features found around each park, in the same order; uncached parks share a single request. */
 export function getParkFeatures(parks: LatLon[]): Promise<Feature[]>[] {

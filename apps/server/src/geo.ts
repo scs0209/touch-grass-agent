@@ -14,6 +14,9 @@ export function distanceInMeters(a: LatLon, b: LatLon) {
   return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+/** A cache key shared by points in the same cell; two decimals is about 1 km, four about 10 m. */
+export const gridKey = ({ lat, lon }: LatLon, decimals: number) => `${lat.toFixed(decimals)},${lon.toFixed(decimals)}`;
+
 /** Bounding box as Nominatim's `viewbox` order: left,top,right,bottom. */
 export function viewboxAround({ lat, lon }: LatLon, radiusM: number) {
   const dLat = radiusM / METERS_PER_DEGREE_LAT;

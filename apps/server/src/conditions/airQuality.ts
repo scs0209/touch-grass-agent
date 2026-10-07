@@ -1,3 +1,10 @@
+import { createCache } from '../cache.js';
+import { gridKey } from '../geo.js';
+import { CONDITIONS_STALE_MS, CONDITIONS_TTL_MS } from './weather.js';
+
+/** The air quality model's grid is about 11 km, and it updates hourly. */
+const readings = createCache<AirQuality>({ ttlMs: CONDITIONS_TTL_MS, staleMs: CONDITIONS_STALE_MS });
+
 export interface AirQuality {
   pm10: number;
   pm25: number;
@@ -18,7 +25,11 @@ function toLevel(aqi: number): AirQuality['level'] {
   return 'extremely poor';
 }
 
-export async function getAirQuality(lat: number, lon: number): Promise<AirQuality> {
+export function getAirQuality(lat: number, lon: number): Promise<AirQuality> {
+  return readings.getOrLoad(gridKey({ lat, lon }, 2), () => fetchAirQuality(lat, lon));
+}
+
+async function fetchAirQuality(lat: number, lon: number): Promise<AirQuality> {
   const url = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
   url.search = new URLSearchParams({
     latitude: String(lat),

@@ -1,3 +1,13 @@
+import { createCache } from '../cache.js';
+import { gridKey } from '../geo.js';
+
+/** Open-Meteo refreshes current conditions every 15 minutes, on a grid of about 1–2 km. */
+export const CONDITIONS_TTL_MS = 10 * 60 * 1000;
+/** A brief outage then suggests from the last known weather instead of failing outright. */
+export const CONDITIONS_STALE_MS = 30 * 60 * 1000;
+
+const forecasts = createCache<Weather>({ ttlMs: CONDITIONS_TTL_MS, staleMs: CONDITIONS_STALE_MS });
+
 const WMO_DESCRIPTIONS: Record<number, string> = {
   0: 'clear sky',
   1: 'mainly clear',
@@ -74,7 +84,11 @@ interface OpenMeteoForecast {
   daily: { sunset: string[] };
 }
 
-export async function getWeather(lat: number, lon: number): Promise<Weather> {
+export function getWeather(lat: number, lon: number): Promise<Weather> {
+  return forecasts.getOrLoad(gridKey({ lat, lon }, 2), () => fetchWeather(lat, lon));
+}
+
+async function fetchWeather(lat: number, lon: number): Promise<Weather> {
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.search = new URLSearchParams({
     latitude: String(lat),

@@ -1,3 +1,4 @@
+import { createCache } from '../cache.js';
 import type { LatLon } from '../geo.js';
 
 export type TravelMode = 'foot' | 'bike';
@@ -42,12 +43,15 @@ interface OsrmResponse {
 }
 
 const osrmUrl = (mode: TravelMode) => `https://routing.openstreetmap.de/routed-${mode}/route/v1/${mode}`;
-/** Long enough to cover asking again from the same spot, short enough that routes don't go stale. */
-const CACHE_TTL_MS = 10 * 60 * 1000;
+/**
+ * Picking a recent place again later that day asks for the same round trip; streets change far more
+ * slowly than that, and OSRM's map data updates about once a day.
+ */
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 /** Unlocking a Ddareungi bike at the station and docking it again. */
 const RENT_AND_RETURN_MIN = 2;
 
-const cache = new Map<string, { trip: Promise<RoundTrip>; expiresAt: number }>();
+const cache = createCache<RoundTrip>({ ttlMs: CACHE_TTL_MS, maxEntries: 2000 });
 
 const cacheKey = (mode: TravelMode, origin: LatLon, destination: LatLon) =>
   [mode, origin.lat, origin.lon, destination.lat, destination.lon].join(',');
@@ -96,26 +100,17 @@ async function fetchRoundTrips(mode: TravelMode, origin: LatLon, destinations: L
 }
 
 function remember(mode: TravelMode, origin: LatLon, destinations: LatLon[]): Promise<RoundTrip>[] {
-  const now = Date.now();
-  for (const [key, entry] of cache) if (entry.expiresAt <= now) cache.delete(key);
-
   const trips = fetchRoundTrips(mode, origin, destinations);
-  return destinations.map((destination, index) => {
-    const key = cacheKey(mode, origin, destination);
-    const trip = trips.then((all) => all[index]);
-    cache.set(key, { trip, expiresAt: now + CACHE_TTL_MS });
-    // Forget failures so the next request asks OSRM again.
-    trip.catch(() => {
-      if (cache.get(key)?.trip === trip) cache.delete(key);
-    });
-    return trip;
-  });
+  return destinations.map((destination, index) =>
+    cache.set(
+      cacheKey(mode, origin, destination),
+      trips.then((all) => all[index]),
+    ),
+  );
 }
 
-function cached(mode: TravelMode, origin: LatLon, destination: LatLon) {
-  const entry = cache.get(cacheKey(mode, origin, destination));
-  return entry && entry.expiresAt > Date.now() ? entry.trip : undefined;
-}
+const cached = (mode: TravelMode, origin: LatLon, destination: LatLon) =>
+  cache.peek(cacheKey(mode, origin, destination));
 
 function getRoundTrip(mode: TravelMode, origin: LatLon, destination: LatLon): Promise<RoundTrip> {
   const fetchNow = () => remember(mode, origin, [destination])[0];

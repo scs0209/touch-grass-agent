@@ -1,4 +1,6 @@
-import { distanceInMeters, type LatLon } from '../geo.js';
+import { createHash } from 'node:crypto';
+import { createCache } from '../cache.js';
+import { distanceInMeters, gridKey, type LatLon } from '../geo.js';
 
 export type ShotKind = 'arrival' | 'place';
 
@@ -75,14 +77,19 @@ const GENERIC_NAME_WORDS = new Set([
   'green',
 ]);
 
-const IMAGE_TTL_MS = 30 * 60 * 1000;
+/**
+ * Photos of a park rarely change within hours, and the search takes seconds; Mapillary's thumbnail links
+ * stay valid for weeks, so a cached search still downloads.
+ */
+export const PHOTO_CACHE_MS = 6 * 60 * 60 * 1000;
 const imageUrls = new Map<string, { url: string; expiresAt: number }>();
 
+/** The same photo always gets the same key, so the browser reuses the copy it already downloaded. */
 function remember(url: string) {
   const now = Date.now();
   for (const [key, entry] of imageUrls) if (entry.expiresAt <= now) imageUrls.delete(key);
-  const key = crypto.randomUUID();
-  imageUrls.set(key, { url, expiresAt: now + IMAGE_TTL_MS });
+  const key = createHash('sha256').update(url).digest('hex').slice(0, 32);
+  imageUrls.set(key, { url, expiresAt: now + PHOTO_CACHE_MS });
   return key;
 }
 
@@ -129,20 +136,12 @@ function bbox({ lat, lon }: LatLon, radiusM: number) {
 
 // ---------- Mapillary ----------
 
-interface Search {
-  token: string;
-  /** Aborts when the browser gives up on the request, e.g. the preview was closed. */
-  cancel: AbortSignal;
-}
-
-const deadline = (cancel: AbortSignal) => AbortSignal.any([cancel, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]);
-
-async function searchMapillary({ token, cancel }: Search, center: LatLon, radiusM: number): Promise<MapillaryImage[]> {
+async function searchMapillary(token: string, center: LatLon, radiusM: number): Promise<MapillaryImage[]> {
   const url = `https://graph.mapillary.com/images?fields=${MAPILLARY_FIELDS}&bbox=${bbox(center, radiusM)}&limit=50`;
   // The token goes in a header so it never shows up in logged or traced URLs.
   const response = await fetch(url, {
     headers: { Authorization: `OAuth ${token}` },
-    signal: deadline(cancel),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Mapillary failed: ${response.status}`);
   const data = (await response.json()) as { data?: MapillaryImage[] };
@@ -260,7 +259,7 @@ const stripTags = (html: string) =>
  * Geotagged Commons photos near the park whose title names the park. Photos that only happen to be
  * nearby are skipped, so the film never passes off some other building as this place.
  */
-async function wikimediaPlaceShots(destination: LatLon, placeName: string, cancel: AbortSignal): Promise<Candidate[]> {
+async function wikimediaPlaceShots(destination: LatLon, placeName: string): Promise<Candidate[]> {
   const wanted = nameWords(placeName);
   if (wanted.length === 0) return [];
 
@@ -279,7 +278,7 @@ async function wikimediaPlaceShots(destination: LatLon, placeName: string, cance
   });
   const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
     headers: { 'User-Agent': USER_AGENT },
-    signal: deadline(cancel),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Wikimedia failed: ${response.status}`);
   const pages = Object.values(
@@ -321,9 +320,48 @@ async function wikimediaPlaceShots(destination: LatLon, placeName: string, cance
 
 const withKey = ({ url, photo }: Candidate): TripPhoto => ({ key: remember(url), ...photo });
 
+interface PhotoSearch {
+  photos: TripPhotos | null;
+  /** False when a source failed or timed out, so trying again soon might find more. */
+  complete: boolean;
+}
+
+const photoSearches = createCache<PhotoSearch>({
+  ttlMs: PHOTO_CACHE_MS,
+  ttlFor: ({ complete }) => (complete ? PHOTO_CACHE_MS : 0),
+});
+
+async function searchTripPhotos(
+  token: string,
+  entrance: LatLon,
+  destination: LatLon,
+  placeName: string,
+): Promise<PhotoSearch> {
+  let complete = true;
+  const orNothing = <T>(error: unknown, nothing: T) => {
+    complete = false;
+    console.warn('Skipping a photo source:', (error as Error).message);
+    return nothing;
+  };
+  const [commons, nearEntrance, inPark] = await Promise.all([
+    wikimediaPlaceShots(destination, placeName).catch((error) => orNothing(error, [])),
+    searchMapillary(token, entrance, ARRIVAL_SEARCH_M).catch((error) => orNothing(error, [])),
+    searchMapillary(token, destination, PLACE_SEARCH_M).catch((error) => orNothing(error, [])),
+  ]);
+
+  const arrival = arrivalShot(nearEntrance, entrance, destination);
+  const used = new Set(arrival ? [arrival.id] : []);
+  // Eye-level photos taken in the park show the place itself; Commons photos named after it are often
+  // close-ups of a flower or a sign, so they only fill in.
+  const place = [...mapillaryPlaceShots(inPark, destination, used), ...commons].slice(0, PLACE_SHOTS);
+  if (!arrival && place.length === 0) return { photos: null, complete };
+  return { photos: { arrival: arrival ? withKey(arrival) : null, place: place.map(withKey) }, complete };
+}
+
 /**
  * Real photos of the park for the end of the walk preview: one taken at its edge looking in, and a few
  * taken inside or named after it. Returns null when there is no Mapillary token or no photo at all.
+ * The search keeps going when `cancel` fires (the preview was closed), so opening it again finds it cached.
  */
 export async function getTripPhotos(
   entrance: LatLon,
@@ -332,25 +370,10 @@ export async function getTripPhotos(
   cancel: AbortSignal = new AbortController().signal,
 ): Promise<TripPhotos | null> {
   const token = process.env.MAPILLARY_ACCESS_TOKEN;
-  if (!token) return null;
+  if (!token || cancel.aborted) return null;
 
-  const search = { token, cancel };
-  const [commons, nearEntrance, inPark] = await Promise.all([
-    wikimediaPlaceShots(destination, placeName, cancel).catch(() => []),
-    searchMapillary(search, entrance, ARRIVAL_SEARCH_M).catch(() => []),
-    searchMapillary(search, destination, PLACE_SEARCH_M).catch(() => []),
-  ]);
-  if (cancel.aborted) return null;
-
-  const arrival = arrivalShot(nearEntrance, entrance, destination);
-  const used = new Set(arrival ? [arrival.id] : []);
-  // Eye-level photos taken in the park show the place itself; Commons photos named after it are often
-  // close-ups of a flower or a sign, so they only fill in.
-  const place = [...mapillaryPlaceShots(inPark, destination, used), ...commons].slice(0, PLACE_SHOTS);
-  if (!arrival && place.length === 0) return null;
-
-  return {
-    arrival: arrival ? withKey(arrival) : null,
-    place: place.map(withKey),
-  };
+  const key = [gridKey(entrance, 5), gridKey(destination, 5), placeName].join('|');
+  const search = photoSearches.getOrLoad(key, () => searchTripPhotos(token, entrance, destination, placeName));
+  const closed = new Promise<null>((resolve) => cancel.addEventListener('abort', () => resolve(null), { once: true }));
+  return (await Promise.race([search, closed]))?.photos ?? null;
 }

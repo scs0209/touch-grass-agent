@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { OLLAMA_MODEL } from './agent.js';
-import { fetchTripPhoto, getTripPhotos } from './conditions/photos.js';
+import { fetchTripPhoto, getTripPhotos, PHOTO_CACHE_MS } from './conditions/photos.js';
 import { recommend } from './mastra.js';
 import { recommendRequestSchema, tripPhotosRequestSchema } from './schema.js';
 
@@ -38,7 +38,11 @@ app.post('/api/trip-photos', async (c) => {
 app.get('/api/trip-photos/:key', async (c) => {
   const photo = await fetchTripPhoto(c.req.param('key'));
   if (!photo) return c.json({ error: 'Photo unavailable' }, 404);
-  return c.body(photo.bytes, 200, { 'Content-Type': photo.type, 'Cache-Control': 'private, max-age=1800' });
+  // Keys are derived from the photo's source, so a key always means the same image.
+  return c.body(photo.bytes, 200, {
+    'Content-Type': photo.type,
+    'Cache-Control': `private, max-age=${PHOTO_CACHE_MS / 1000}, immutable`,
+  });
 });
 
 const port = Number(process.env.PORT ?? 8787);

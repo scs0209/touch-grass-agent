@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
+import { createCache } from '../cache.js';
 import { distanceInMeters, type LatLon, viewboxAround } from '../geo.js';
 
 export type PlaceKind = 'park' | 'landmark';
@@ -36,8 +37,11 @@ const MIN_DISTANCE_RATIO = 0.3;
 const MAX_PLACES = 6;
 /** Nominatim's usage policy allows at most one request per second. */
 const NOMINATIM_GAP_MS = 1000;
-/** Asking for another place repeats the same search; parks and sights don't move in half an hour. */
-const SEARCH_CACHE_MS = 30 * 60 * 1000;
+/**
+ * Asking for another place, or searching the same city later that day, repeats the same search; parks and
+ * sights don't move in a day, and Nominatim's usage policy asks clients to cache.
+ */
+const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 
 /** Nominatim's search phrase for each kind of place. */
 const SEARCH_PHRASE: Record<PlaceKind, string> = { park: 'park', landmark: 'attraction' };
@@ -47,7 +51,7 @@ const SEARCH_LIMIT: Record<PlaceKind, number> = { park: 15, landmark: 40 };
 const INDOOR_WORDS = /\b(museum|mall|shopping|underground|station|gallery|greenhouse)\b/i;
 
 let nextNominatimAt = 0;
-const searches = new Map<string, { results: Promise<NominatimResult[]>; expiresAt: number }>();
+const searches = createCache<NominatimResult[]>({ ttlMs: SEARCH_CACHE_MS });
 
 async function waitForNominatim() {
   const now = Date.now();
@@ -67,20 +71,7 @@ async function fetchNominatim(url: URL): Promise<NominatimResult[]> {
   return (await response.json()) as NominatimResult[];
 }
 
-function searchNominatim(url: URL) {
-  const now = Date.now();
-  for (const [key, entry] of searches) if (entry.expiresAt <= now) searches.delete(key);
-  const key = url.toString();
-  const cached = searches.get(key);
-  if (cached) return cached.results;
-  const results = fetchNominatim(url);
-  searches.set(key, { results, expiresAt: now + SEARCH_CACHE_MS });
-  // Forget failures so the next request asks Nominatim again.
-  results.catch(() => {
-    if (searches.get(key)?.results === results) searches.delete(key);
-  });
-  return results;
-}
+const searchNominatim = (url: URL) => searches.getOrLoad(url.toString(), () => fetchNominatim(url));
 
 const cityOf = (address: Record<string, string> = {}) =>
   address.city ?? address.town ?? address.village ?? address.county ?? address.state ?? null;
