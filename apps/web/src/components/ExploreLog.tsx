@@ -15,7 +15,7 @@ export function ExploreLog({ visits }: { visits: Visit[] }) {
   const earned = badges(visits);
 
   return (
-    <section className="panel explore-log" aria-labelledby="explore-log-title">
+    <section className="panel explore-log" aria-labelledby="explore-log-title" data-tour="explorations">
       <h2 id="explore-log-title">Your explorations</h2>
       {visits.length === 0 ? (
         <p className="muted small">

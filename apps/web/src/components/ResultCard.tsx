@@ -11,6 +11,7 @@ import { describeRoute, storyInput } from '../utils/result';
 import { Avatar } from './Avatar';
 import { OutfitCards } from './OutfitCards';
 import { ResultMap } from './ResultMap';
+import { Tour } from './Tour';
 import { WeatherPanel } from './WeatherPanel';
 
 const WalkPreview = lazy(() => import('./WalkPreview').then((module) => ({ default: module.WalkPreview })));
@@ -95,6 +96,7 @@ export function ResultCard({
       {isGo && place && (
         <button
           className="secondary preview-button"
+          data-tour="preview"
           onClick={() =>
             setPreview({ input: storyInput(result, place, outfit, discoveryLabel(visits, place)), outfit })
           }
@@ -146,6 +148,7 @@ export function ResultCard({
       {isGo && destination && (
         <a
           className="primary"
+          data-tour="directions"
           href={place ? directionsUrl(place, bikeStation) : directionsUrl(destination)}
           target="_blank"
           rel="noreferrer"
@@ -164,6 +167,7 @@ export function ResultCard({
       <p className="muted small">
         {source === 'model' ? 'Suggested by Gemma running locally' : 'Rule-based suggestion (model unavailable)'}
       </p>
+      {isGo && place && <Tour id="result" />}
     </main>
   );
 }

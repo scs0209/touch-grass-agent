@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ONBOARDING_PRIVACY, ONBOARDING_STEPS } from '../constants/onboarding';
 import {
   COMPANY_LABELS,
   CYCLING_LABELS,
@@ -46,12 +45,9 @@ function cyclingAnswer(cycling: boolean | null) {
 
 export function Questionnaire({
   initial,
-  firstVisit,
   onDone,
 }: {
   initial: SavedChoice | null;
-  /** Explains the app above the questions; editing the answers later goes straight to them. */
-  firstVisit: boolean;
   onDone: (choice: SavedChoice) => void;
 }) {
   const [preferences, setPreferences] = useState<Preferences>(
@@ -65,32 +61,10 @@ export function Questionnaire({
         : [...preferences.interests, interest],
     });
   const cycling = cyclingAnswer(preferences.cycling);
-  // The app's name heads the first visit, so the questions sit one level below it.
-  const Title = firstVisit ? 'h2' : 'h1';
 
   return (
     <main className="screen">
-      {firstVisit && (
-        <>
-          <h1>Should I go out?</h1>
-          <section className="panel onboarding" aria-labelledby="onboarding-title">
-            <p id="onboarding-title" className="onboarding-lead">
-              One suggestion for right now. Then put your phone away.
-            </p>
-            <ol className="onboarding-steps">
-              {ONBOARDING_STEPS.map((step) => (
-                <li key={step.text}>
-                  <span aria-hidden="true">{step.icon}</span>
-                  {step.text}
-                </li>
-              ))}
-            </ol>
-            <p className="muted small">{ONBOARDING_PRIVACY}</p>
-          </section>
-        </>
-      )}
-
-      <Title className="questionnaire-title">What do you like?</Title>
+      <h1>What do you like?</h1>
       <p className="muted">A few quick picks help the suggestions fit you. Skip any question you like.</p>
 
       <button className="secondary" onClick={() => onDone({ mode: 'ai' })} type="button">

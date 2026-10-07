@@ -626,34 +626,88 @@ input,
   color: #a33b2b;
 }
 
-.onboarding-lead {
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+}
+
+.tour-spotlight {
+  position: fixed;
+  border-radius: 18px;
+  box-shadow: 0 0 0 9999px rgba(20, 30, 20, 0.55);
+  pointer-events: none;
+  transition:
+    top 0.25s,
+    left 0.25s,
+    width 0.25s,
+    height 0.25s;
+}
+
+.tour-tip {
+  position: fixed;
+  width: min(320px, calc(100vw - 32px));
+  box-sizing: border-box;
+  /* Solid, so the arrow and the card read as one shape over the dimmed page. */
+  background: rgb(250, 252, 248);
+}
+
+.tour-tip::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--arrow-x) - 8px);
+  width: 16px;
+  height: 16px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.tour-tip.below::before {
+  top: -8px;
+}
+
+.tour-tip.above::before {
+  bottom: -8px;
+}
+
+.tour-tip.over::before {
+  display: none;
+}
+
+.tour-count {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #4a5747;
+}
+
+.tour-tip h2 {
   margin: 0;
   font-size: 1.1rem;
-  font-weight: 600;
 }
 
-.onboarding-steps {
+.tour-actions {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
-  margin: 0;
+  margin-top: 4px;
+}
+
+.tour-actions .link {
+  margin-right: auto;
   padding: 0;
-  list-style: none;
 }
 
-.onboarding-steps li {
-  display: flex;
-  gap: 10px;
+.tour-actions .primary,
+.tour-actions .secondary {
+  padding: 10px 16px;
 }
 
-.questionnaire-title {
-  margin: 8px 0 0;
-  font-size: 1.5rem;
-}
-
-h1.questionnaire-title {
-  margin: 0;
-  font-size: 2rem;
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight {
+    transition: none;
+  }
 }
 
 .discovery {

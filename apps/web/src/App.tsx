@@ -4,10 +4,12 @@ import { ExploreLog } from './components/ExploreLog';
 import { Questionnaire } from './components/Questionnaire';
 import { RecentPlaces } from './components/RecentPlaces';
 import { ResultCard } from './components/ResultCard';
+import { Tour } from './components/Tour';
 import { useExplorations } from './hooks/useExplorations';
 import { useRecentPlaces } from './hooks/useRecentPlaces';
 import { useRecommendation } from './hooks/useRecommendation';
 import { loadChoice, saveChoice } from './services/choiceStorage';
+import { forgetTours } from './services/tourStorage';
 import type { SavedChoice } from './types/preferences';
 import { summarize } from './utils/preferences';
 
@@ -37,6 +39,13 @@ export function App() {
     onCheckIn: () => void explorations.checkInHere(),
     onDismiss: explorations.dismiss,
   };
+  // Bumping it remounts the home tour, which then finds itself unseen and starts over.
+  const [tourRun, setTourRun] = useState(0);
+
+  function replayTour() {
+    forgetTours();
+    setTourRun((run) => run + 1);
+  }
 
   function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -48,7 +57,6 @@ export function App() {
     return (
       <Questionnaire
         initial={choice}
-        firstVisit={!choice}
         onDone={(picked) => {
           saveChoice(picked);
           setChoice(picked);
@@ -87,7 +95,7 @@ export function App() {
 
       <CheckIn {...checkInProps} />
 
-      <section className="panel">
+      <section className="panel" data-tour="minutes">
         <p className="muted">How much time do you have?</p>
 
         <p className="minutes-value">{availableMinutes} min</p>
@@ -118,6 +126,7 @@ export function App() {
 
       <button
         className="primary"
+        data-tour="here"
         onClick={() => void recommendHere()}
         disabled={status.kind === 'loading'}
         type="button"
@@ -125,7 +134,7 @@ export function App() {
         Check right here
       </button>
 
-      <form className="city-form" onSubmit={handleCitySubmit}>
+      <form className="city-form" data-tour="city" onSubmit={handleCitySubmit}>
         <input
           value={city}
           onChange={(event) => setCity(event.target.value)}
@@ -149,6 +158,11 @@ export function App() {
         onPick={(place) => void recommendRecent(place)}
         onRemove={recentPlaces.remove}
       />
+
+      <button className="link" onClick={replayTour} type="button">
+        How it works
+      </button>
+      <Tour key={tourRun} id="home" />
     </main>
   );
 }

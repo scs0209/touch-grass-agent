@@ -40,7 +40,7 @@ export function CheckIn({ candidates, status, onCheckIn, onDismiss, compact = fa
 
   if (compact) {
     return (
-      <div className="check-in">
+      <div className="check-in" data-tour="check-in">
         <p className="muted small">At {names}? Check in to add it to your explorations.</p>
         {controls}
       </div>
