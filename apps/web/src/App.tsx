@@ -1,6 +1,8 @@
 import { type SubmitEvent, useState } from 'react';
 import { Questionnaire } from './components/Questionnaire';
+import { RecentPlaces } from './components/RecentPlaces';
 import { ResultCard } from './components/ResultCard';
+import { useRecentPlaces } from './hooks/useRecentPlaces';
 import { useRecommendation } from './hooks/useRecommendation';
 import { loadChoice, saveChoice } from './services/choiceStorage';
 import type { SavedChoice } from './types/preferences';
@@ -18,7 +20,12 @@ export function App() {
   const [choice, setChoice] = useState<SavedChoice | null>(loadChoice);
   const [editingChoice, setEditingChoice] = useState(false);
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
-  const { status, recommendHere, recommendInCity, reset } = useRecommendation(availableMinutes, preferences);
+  const recentPlaces = useRecentPlaces();
+  const { status, recommendHere, recommendInCity, recommendRecent, anotherPlace, reset } = useRecommendation(
+    availableMinutes,
+    preferences,
+    recentPlaces.add,
+  );
 
   function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -40,7 +47,18 @@ export function App() {
   }
 
   if (status.kind === 'done') {
-    return <ResultCard result={status.result} onReset={reset} />;
+    return (
+      <ResultCard
+        // A new place starts a fresh card, with its own map and outfit choice, from the top of the page.
+        key={`${status.result.place?.name}-${status.session.seen.length}`}
+        result={status.result}
+        around={status.session.origin.label}
+        finding={status.finding}
+        notice={status.notice}
+        onAnotherPlace={() => void anotherPlace()}
+        onReset={reset}
+      />
+    );
   }
 
   return (
@@ -106,6 +124,13 @@ export function App() {
         </p>
       )}
       {status.kind === 'error' && <p className="error">{status.message}</p>}
+
+      <RecentPlaces
+        places={recentPlaces.places}
+        disabled={status.kind === 'loading'}
+        onPick={(place) => void recommendRecent(place)}
+        onRemove={recentPlaces.remove}
+      />
     </main>
   );
 }

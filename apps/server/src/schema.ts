@@ -16,17 +16,31 @@ export const preferencesSchema = z.object({
 export type Preferences = z.infer<typeof preferencesSchema>;
 export type Interest = (typeof INTERESTS)[number];
 
-export const recommendRequestSchema = z.object({
-  lat: z.number().min(-90).max(90),
-  lon: z.number().min(-180).max(180),
+const latLonSchema = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) });
+const placeNameSchema = z.string().min(1).max(200);
+export const placeKindSchema = z.enum(['park', 'landmark']);
+
+export const recommendRequestSchema = latLonSchema.extend({
   availableMinutes: z.number().int().min(10).max(240).default(30),
   /** Null when the person lets the AI decide everything. */
   preferences: preferencesSchema.nullish(),
+  /** Places already suggested from this starting point, so asking again finds a different one. */
+  excludePlaces: z.array(placeNameSchema).max(50).default([]),
+  /** The kind of the last place suggested; asking again then tries the other kind first. */
+  varyFrom: placeKindSchema.nullish(),
+  /** A place picked again from the recent places, suggested on its own. */
+  place: latLonSchema
+    .extend({
+      name: placeNameSchema,
+      kind: placeKindSchema.default('park'),
+      city: z.string().max(200).nullish(),
+      area: z.string().max(200).nullish(),
+    })
+    .nullish(),
 });
 
 export type RecommendRequest = z.infer<typeof recommendRequestSchema>;
-
-const latLonSchema = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) });
+export type PinnedPlace = NonNullable<RecommendRequest['place']>;
 
 export const tripPhotosRequestSchema = z.object({
   /** Where the route meets the park; the same as destination when there is no route. */

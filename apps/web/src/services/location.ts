@@ -17,11 +17,12 @@ export function locationErrorMessage(error: unknown) {
   return LOCATION_ERROR_MESSAGES[code] ?? "Couldn't get your location. Type your city instead.";
 }
 
-export async function geocodeCity(name: string): Promise<LatLon> {
+/** The city's center and its name as Open-Meteo spells it, e.g. "seoul" becomes "Seoul". */
+export async function geocodeCity(name: string): Promise<LatLon & { name: string }> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(name)}`;
   const response = await fetch(url);
-  const body = (await response.json()) as { results?: { latitude: number; longitude: number }[] };
+  const body = (await response.json()) as { results?: { latitude: number; longitude: number; name: string }[] };
   const place = body.results?.[0];
   if (!place) throw new Error(`Couldn't find "${name}".`);
-  return { lat: place.latitude, lon: place.longitude };
+  return { lat: place.latitude, lon: place.longitude, name: place.name || name };
 }

@@ -1,17 +1,17 @@
-import type { RecommendResponse, TripPhotos } from '../types/api';
+import type { PlaceSearch, RecommendResponse, TripPhotos } from '../types/api';
 import type { LatLon } from '../types/geo';
 import type { Preferences } from '../types/preferences';
 
 export async function fetchRecommendation(
-  lat: number,
-  lon: number,
+  { lat, lon }: LatLon,
   availableMinutes: number,
   preferences: Preferences | null,
+  search: PlaceSearch = {},
 ) {
   const response = await fetch('/api/recommend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lat, lon, availableMinutes, preferences }),
+    body: JSON.stringify({ lat, lon, availableMinutes, preferences, ...search }),
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error ?? 'Something went wrong.');

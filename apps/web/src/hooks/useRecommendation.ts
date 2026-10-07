@@ -1,28 +1,69 @@
 import { useState } from 'react';
 import { fetchRecommendation } from '../services/api';
 import { geocodeCity, getCurrentPosition, locationErrorMessage } from '../services/location';
-import type { RecommendResponse } from '../types/api';
+import type { PlaceKind, PlaceSearch, RecommendResponse } from '../types/api';
+import type { RecentPlace, SearchOrigin } from '../types/places';
 import type { Preferences } from '../types/preferences';
+
+/** One search from a starting point, and the places suggested from it so far. */
+export interface PlaceSession {
+  origin: SearchOrigin;
+  /** Names of the places already suggested, so asking again finds new ones. */
+  seen: string[];
+  lastKind: PlaceKind | null;
+}
 
 export type RecommendStatus =
   | { kind: 'idle' }
   | { kind: 'loading'; message: string }
-  | { kind: 'done'; result: RecommendResponse }
+  | {
+      kind: 'done';
+      result: RecommendResponse;
+      session: PlaceSession;
+      /** True while another place is being looked up; the current one stays on screen. */
+      finding: boolean;
+      notice: string | null;
+    }
   | { kind: 'error'; message: string };
 
-/** Finds where the person is (or looks up a city), then asks the server for a suggestion. */
-export function useRecommendation(availableMinutes: number, preferences: Preferences | null) {
+const HERE_LABEL = 'your location';
+
+/**
+ * Finds where the person is (or looks up a city), asks the server for a suggestion, and can then ask for another
+ * place from the same start. Every suggested place goes to onPlace, which keeps the recent places.
+ */
+export function useRecommendation(
+  availableMinutes: number,
+  preferences: Preferences | null,
+  onPlace: (place: RecentPlace) => void,
+) {
   const [status, setStatus] = useState<RecommendStatus>({ kind: 'idle' });
 
-  async function recommendFor(lat: number, lon: number) {
+  /** The session after a result, recording its place both here and in the recent places. */
+  function remember(result: RecommendResponse, session: PlaceSession): PlaceSession {
+    const { place } = result;
+    if (!place) return session;
+    const { features: _features, ...details } = place;
+    onPlace({
+      ...details,
+      city: place.city ?? session.origin.city,
+      origin: session.origin,
+      viewedAt: Date.now(),
+    });
+    return { ...session, seen: [...session.seen, place.name], lastKind: place.kind };
+  }
+
+  async function start(origin: SearchOrigin, search: PlaceSearch = {}) {
     setStatus({
       kind: 'loading',
       message: preferences?.cycling
         ? 'Checking the sky, the air, and nearby bikes…'
-        : 'Checking the sky, the air, and nearby parks…',
+        : 'Checking the sky, the air, and nearby places…',
     });
     try {
-      setStatus({ kind: 'done', result: await fetchRecommendation(lat, lon, availableMinutes, preferences) });
+      const result = await fetchRecommendation(origin, availableMinutes, preferences, search);
+      const session = remember(result, { origin, seen: [], lastKind: null });
+      setStatus({ kind: 'done', result, session, finding: false, notice: null });
     } catch (error) {
       setStatus({ kind: 'error', message: (error as Error).message });
     }
@@ -32,7 +73,7 @@ export function useRecommendation(availableMinutes: number, preferences: Prefere
     setStatus({ kind: 'loading', message: 'Finding where you are…' });
     try {
       const { coords } = await getCurrentPosition();
-      await recommendFor(coords.latitude, coords.longitude);
+      await start({ lat: coords.latitude, lon: coords.longitude, label: HERE_LABEL, city: null });
     } catch (error) {
       setStatus({ kind: 'error', message: locationErrorMessage(error) });
     }
@@ -41,12 +82,49 @@ export function useRecommendation(availableMinutes: number, preferences: Prefere
   async function recommendInCity(city: string) {
     setStatus({ kind: 'loading', message: `Looking up ${city}…` });
     try {
-      const { lat, lon } = await geocodeCity(city.trim());
-      await recommendFor(lat, lon);
+      const { lat, lon, name } = await geocodeCity(city.trim());
+      await start({ lat, lon, label: name, city: name });
     } catch (error) {
       setStatus({ kind: 'error', message: (error as Error).message });
     }
   }
 
-  return { status, recommendHere, recommendInCity, reset: () => setStatus({ kind: 'idle' }) };
+  /** Suggests a recent place again, from where its walk started then. */
+  function recommendRecent(place: RecentPlace) {
+    const { origin, viewedAt: _viewedAt, ...details } = place;
+    return start(origin, { place: details });
+  }
+
+  /** Another place from the same start, skipping the ones already suggested; the current one stays if none is left. */
+  async function anotherPlace() {
+    if (status.kind !== 'done' || status.finding) return;
+    const { result: current, session } = status;
+    setStatus({ ...status, finding: true, notice: null });
+    const keepCurrent = (notice: string) =>
+      setStatus({ kind: 'done', result: current, session, finding: false, notice });
+    try {
+      const result = await fetchRecommendation(session.origin, availableMinutes, preferences, {
+        excludePlaces: session.seen,
+        varyFrom: session.lastKind,
+      });
+      if (result.recommendation.verdict === 'go' && !result.place) {
+        keepCurrent(
+          `No other places fit in ${availableMinutes} minutes around ${session.origin.label}. Try more time to reach farther ones.`,
+        );
+        return;
+      }
+      setStatus({ kind: 'done', result, session: remember(result, session), finding: false, notice: null });
+    } catch (error) {
+      keepCurrent((error as Error).message);
+    }
+  }
+
+  return {
+    status,
+    recommendHere,
+    recommendInCity,
+    recommendRecent,
+    anotherPlace,
+    reset: () => setStatus({ kind: 'idle' }),
+  };
 }

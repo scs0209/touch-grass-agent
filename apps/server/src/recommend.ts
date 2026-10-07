@@ -3,7 +3,7 @@ import type { Agent } from '@mastra/core/agent';
 import { type AirQuality, getAirQuality } from './conditions/airQuality.js';
 import { type BikeStation, getNearbyBikeStations } from './conditions/bikes.js';
 import { type Feature, getParkFeatures } from './conditions/features.js';
-import { getNearbyParks, type Place, rideableRadiusM, walkableRadiusM } from './conditions/places.js';
+import { getNearbyPlaces, type Place, type PlaceKind, rideableRadiusM, walkableRadiusM } from './conditions/places.js';
 import {
   getRoundTripRide,
   getRoundTripRides,
@@ -12,9 +12,15 @@ import {
   type Route,
 } from './conditions/route.js';
 import { getWeather, type Weather } from './conditions/weather.js';
-import type { LatLon } from './geo.js';
+import { distanceInMeters, type LatLon } from './geo.js';
 import { baselineOutfit, type Outfit, outfitOptions, withRequiredExtras } from './outfit.js';
-import { type Interest, type Preferences, type Recommendation, recommendationSchema } from './schema.js';
+import {
+  type Interest,
+  type PinnedPlace,
+  type Preferences,
+  type Recommendation,
+  recommendationSchema,
+} from './schema.js';
 
 export interface Park extends Place {
   /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
@@ -36,6 +42,15 @@ export interface Conditions {
   baselineOutfit: Outfit;
   /** Null when the person lets the AI decide everything. */
   preferences: Preferences | null;
+  /** The person asked for another place or picked one again, so a "go" must name one of nearbyParks. */
+  mustPickPlace: boolean;
+}
+
+/** Which places to consider, beyond the default parks around the person. */
+export interface PlaceSearch {
+  excludePlaces?: string[];
+  varyFrom?: PlaceKind | null;
+  place?: PinnedPlace | null;
 }
 
 const MODEL_ATTEMPTS = 2;
@@ -65,18 +80,43 @@ async function withinWait<T>(promise: Promise<T>, label: string): Promise<T | nu
 const firstStationWithBikes = (stations: BikeStation[] | null) =>
   stations?.find((station) => station.bikesAvailable > 0);
 
+const ID_PREFIX: Record<PlaceKind, string> = { park: 'P', landmark: 'L' };
+
+/**
+ * Parks first, as always; asking again after a park looks at landmarks, and the other kind stands in when one
+ * runs out, so repeated asks alternate between them.
+ */
+async function walkablePlaces(origin: LatLon, radiusM: number, exclude: string[], varyFrom: PlaceKind | null) {
+  const order: PlaceKind[] = varyFrom === 'park' ? ['landmark', 'park'] : ['park', 'landmark'];
+  for (const kind of order) {
+    const places = await optional(
+      getNearbyPlaces(origin, radiusM, { kind, exclude, idPrefix: ID_PREFIX[kind] }),
+      `${kind}s`,
+      [],
+    );
+    if (places.length > 0) return places;
+  }
+  return [];
+}
+
 /** Parks on foot, plus farther ones a Ddareungi can reach when riding is possible. */
 async function findParks(
   origin: LatLon,
   availableMinutes: number,
   stations: Promise<BikeStation[] | null>,
+  { excludePlaces = [], varyFrom = null, place }: PlaceSearch,
 ): Promise<Park[]> {
+  if (place) return pinnedPark(origin, place, availableMinutes);
   const walkRadius = walkableRadiusM(availableMinutes);
-  const walkPlaces = await optional(getNearbyParks(origin, walkRadius), 'parks', []);
+  const walkPlaces = await walkablePlaces(origin, walkRadius, excludePlaces, varyFrom);
   const station = firstStationWithBikes(await stations);
   const ridePlaces = station
     ? await optional(
-        getNearbyParks(origin, rideableRadiusM(availableMinutes), { beyondM: walkRadius, idPrefix: 'B' }),
+        getNearbyPlaces(origin, rideableRadiusM(availableMinutes), {
+          beyondM: walkRadius,
+          idPrefix: 'B',
+          exclude: excludePlaces,
+        }),
         'bike parks',
         [],
       )
@@ -85,11 +125,27 @@ async function findParks(
   return withDetails(origin, walkPlaces, station ? { station, places: newRidePlaces } : null, availableMinutes);
 }
 
+/** A place picked again from the recent places, walked to even when it takes longer than the time set now. */
+function pinnedPark(origin: LatLon, pinned: PinnedPlace, availableMinutes: number): Promise<Park[]> {
+  const place: Place = {
+    id: `${ID_PREFIX[pinned.kind]}1`,
+    name: pinned.name,
+    kind: pinned.kind,
+    lat: pinned.lat,
+    lon: pinned.lon,
+    distanceMeters: Math.round(distanceInMeters(origin, pinned)),
+    city: pinned.city ?? null,
+    area: pinned.area ?? null,
+  };
+  return withDetails(origin, [place], null, availableMinutes, { keepWalks: true });
+}
+
 async function withDetails(
   origin: LatLon,
   walkPlaces: Place[],
   ride: { station: BikeStation; places: Place[] } | null,
   availableMinutes: number,
+  { keepWalks = false }: { keepWalks?: boolean } = {},
 ): Promise<Park[]> {
   const ridePlaces = ride?.places ?? [];
   const places = [...walkPlaces, ...ridePlaces];
@@ -112,7 +168,7 @@ async function withDetails(
       bikeOnly: false,
       bikeTripMin: null,
     }))
-    .filter((park) => park.roundTripMin === null || park.roundTripMin <= availableMinutes);
+    .filter((park) => keepWalks || park.roundTripMin === null || park.roundTripMin <= availableMinutes);
   // A bike-only park that couldn't be measured might not fit at all, so it is left out.
   const rideParks = ridePlaces
     .map((place, index) => ({
@@ -131,6 +187,7 @@ export async function getConditions(
   origin: LatLon,
   availableMinutes: number,
   preferences: Preferences | null,
+  search: PlaceSearch = {},
 ): Promise<Conditions> {
   // Riding is a matter of taste, so bikes come up only for people who said yes on the questionnaire.
   const stations =
@@ -141,7 +198,7 @@ export async function getConditions(
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
     stations,
-    findParks(origin, availableMinutes, stations),
+    findParks(origin, availableMinutes, stations, search),
   ]);
   return {
     availableMinutes,
@@ -151,6 +208,7 @@ export async function getConditions(
     nearbyParks,
     baselineOutfit: baselineOutfit(weather, airQuality),
     preferences,
+    mustPickPlace: Boolean(search.place) || (search.excludePlaces?.length ?? 0) > 0,
   };
 }
 
@@ -487,11 +545,17 @@ export function fallbackRecommendation(conditions: Conditions): Recommendation {
   };
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export function sanitize(recommendation: Recommendation, conditions: Conditions): Recommendation {
   const { nearbyBikeStations, nearbyParks, availableMinutes, weather, airQuality } = conditions;
   const chosenPark = nearbyParks.find((place) => place.id === recommendation.placeId);
-  // Gemma often writes "Citizen’s Park" for "Citizen's Park".
-  const modelActivity = recommendation.activity.replace(/[‘’]/g, "'");
+  // Gemma often writes "Citizen’s Park" for "Citizen's Park", and sometimes copies a landmark's kind after its
+  // name ("Walk to Hwangudan Landmark").
+  const modelActivity = nearbyParks.reduce(
+    (text, place) => text.replace(new RegExp(`${escapeRegExp(place.name)} landmark\\b`, 'gi'), place.name),
+    recommendation.activity.replace(/[‘’]/g, "'"),
+  );
   // The map must show the park the person reads about, even when placeId points elsewhere or is empty.
   const namedPark = nearbyParks.find((place) => modelActivity.includes(place.name));
   const modelPark = recommendation.verdict === 'go' ? (namedPark ?? chosenPark) : undefined;
@@ -501,9 +565,11 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const stationAllowed = modelStation !== undefined && (saysBike || modelPark?.bikeOnly);
   // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
-  // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed.
+  // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed,
+  // and someone who asked for another place shouldn't get a walk around the block instead.
+  const needsListedPark = PARK_WORDS.test(modelActivity) || conditions.mustPickPlace;
   const unlistedPark =
-    recommendation.verdict === 'go' && !modelPark && !stationAllowed && PARK_WORDS.test(modelActivity)
+    recommendation.verdict === 'go' && !modelPark && !stationAllowed && needsListedPark
       ? preferredPark(conditions)
       : undefined;
   const switchedPark = matchingPark ?? unlistedPark;
@@ -581,7 +647,17 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
     thingScenes: (recommendation.thingsToDo ?? []).map(sceneFor),
     outfits: outfitOptions(outfit ?? conditions.baselineOutfit, conditions.weather, conditions.airQuality),
     origin,
-    place: place ? { name: place.name, lat: place.lat, lon: place.lon, features: place.features } : null,
+    place: place
+      ? {
+          name: place.name,
+          kind: place.kind,
+          lat: place.lat,
+          lon: place.lon,
+          city: place.city,
+          area: place.area,
+          features: place.features,
+        }
+      : null,
     route,
     bikeStation: bikeStation
       ? {

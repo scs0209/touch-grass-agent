@@ -500,6 +500,84 @@ input,
   cursor: pointer;
 }
 
+.another-place {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.another-place .secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.recent-places h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.recent-places ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-places li {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.recent-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: var(--glass-border);
+  border-radius: var(--glass-radius);
+  background: rgba(255, 255, 255, 0.55);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.recent-pick:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.recent-pick:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.recent-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.recent-remove {
+  flex-shrink: 0;
+  width: 40px;
+  border: none;
+  border-radius: var(--glass-radius);
+  background: transparent;
+  color: #4a5747;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.recent-remove:hover {
+  background: rgba(255, 255, 255, 0.55);
+  color: #a33b2b;
+}
+
 .choice-summary {
   display: flex;
   flex-wrap: wrap;

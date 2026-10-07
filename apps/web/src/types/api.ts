@@ -32,6 +32,24 @@ export interface Route {
   rideRange: [number, number] | null;
 }
 
+/** Must match PlaceKind in apps/server/src/conditions/places.ts. */
+export type PlaceKind = 'park' | 'landmark';
+
+export interface SuggestedPlace extends NamedPoint {
+  kind: PlaceKind;
+  city: string | null;
+  /** District or neighborhood within the city, e.g. "Jongno-gu". */
+  area: string | null;
+  features: string[] | null;
+}
+
+/** What /api/recommend takes besides the starting point, to find a different place or the same one again. */
+export interface PlaceSearch {
+  excludePlaces?: string[];
+  varyFrom?: PlaceKind | null;
+  place?: Omit<SuggestedPlace, 'features'> | null;
+}
+
 export interface RecommendResponse {
   recommendation: {
     verdict: 'go' | 'stay';
@@ -45,7 +63,7 @@ export interface RecommendResponse {
   thingScenes: ThingScene[];
   outfits: { fit: Fit; outfit: Outfit }[];
   origin: { lat: number; lon: number };
-  place: (NamedPoint & { features: string[] | null }) | null;
+  place: SuggestedPlace | null;
   route: Route | null;
   bikeStation: (NamedPoint & { bikesAvailable: number }) | null;
   source: 'model' | 'fallback';

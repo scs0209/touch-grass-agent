@@ -32,12 +32,14 @@ const response = z.custom<RecommendResponse>();
 
 const gatherConditions = createStep({
   id: 'gather-conditions',
-  description: 'Weather, air quality, parks whose round trip fits the time, and Seoul bike stations around the person',
+  description:
+    'Weather, air quality, parks or landmarks whose round trip fits the time, and Seoul bike stations around the person',
   inputSchema: recommendRequestSchema,
   outputSchema: gathered,
-  execute: async ({ inputData: { lat, lon, availableMinutes, preferences } }) => {
+  execute: async ({ inputData: { lat, lon, availableMinutes, preferences, excludePlaces, varyFrom, place } }) => {
     const origin = { lat, lon };
-    return { origin, conditions: await getConditions(origin, availableMinutes, preferences ?? null) };
+    const search = { excludePlaces, varyFrom, place };
+    return { origin, conditions: await getConditions(origin, availableMinutes, preferences ?? null, search) };
   },
 });
 
