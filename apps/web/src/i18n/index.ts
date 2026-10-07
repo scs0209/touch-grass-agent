@@ -13,9 +13,16 @@ function browserLanguage(): Language {
   return navigator.languages.some((tag) => tag.toLowerCase().startsWith('ko')) ? 'ko' : 'en';
 }
 
+/** index.html only has the English title, so the tab shows it until this runs. */
+function applyToDocument(language: Language) {
+  if (!inBrowser) return;
+  document.documentElement.lang = language;
+  document.title = MESSAGES[language].home.title;
+}
+
 let current: Language = loadLanguage() ?? browserLanguage();
 const listeners = new Set<() => void>();
-if (inBrowser) document.documentElement.lang = current;
+applyToDocument(current);
 
 export const currentLanguage = () => current;
 
@@ -25,7 +32,7 @@ export const messages = () => MESSAGES[current];
 export function setLanguage(language: Language) {
   current = language;
   saveLanguage(language);
-  if (inBrowser) document.documentElement.lang = language;
+  applyToDocument(language);
   for (const listener of listeners) listener();
 }
 
