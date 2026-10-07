@@ -48,6 +48,7 @@ export function App() {
     return (
       <Questionnaire
         initial={choice}
+        firstVisit={!choice}
         onDone={(picked) => {
           saveChoice(picked);
           setChoice(picked);

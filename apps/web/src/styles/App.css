@@ -626,6 +626,36 @@ input,
   color: #a33b2b;
 }
 
+.onboarding-lead {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-steps li {
+  display: flex;
+  gap: 10px;
+}
+
+.questionnaire-title {
+  margin: 8px 0 0;
+  font-size: 1.5rem;
+}
+
+h1.questionnaire-title {
+  margin: 0;
+  font-size: 2rem;
+}
+
 .discovery {
   margin: 0;
   color: #2f6b3a;
