@@ -9,7 +9,6 @@ import { type Assets, buildStory, drawFrame, HEIGHT, WIDTH } from '../preview/st
 import { keepVideo, recordedVideo, videoKey } from '../preview/videoCache';
 import type { Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
-import { directionsUrl } from '../utils/directions';
 import { Avatar } from './Avatar';
 
 type Phase = 'loading' | 'blocked' | 'playing' | 'done' | 'error';
@@ -32,10 +31,12 @@ const AUTOPLAY_WAIT_MS = 300;
 interface WalkPreviewProps {
   input: StoryInput;
   outfit: Outfit;
+  /** The same Google Maps link as the result's directions button. */
+  directions: string | null;
   onClose: () => void;
 }
 
-export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
+export function WalkPreview({ input, outfit, directions, onClose }: WalkPreviewProps) {
   const { preview: text, result: resultText } = useMessages();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -253,14 +254,11 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
         )}
         {phase === 'done' && (
           <div className="preview-actions">
-            <a
-              className="primary"
-              href={directionsUrl(input.destination, input.bikeStation)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {resultText.directions(Boolean(input.bikeStation), input.placeName)}
-            </a>
+            {directions && (
+              <a className="primary" href={directions} target="_blank" rel="noreferrer">
+                {resultText.directions(Boolean(input.bikeStation), input.placeName)}
+              </a>
+            )}
             <div className="preview-row">
               <button type="button" className="secondary" onClick={start}>
                 {text.replay}

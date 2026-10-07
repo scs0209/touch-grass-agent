@@ -15,7 +15,7 @@ import { useMessages } from './i18n';
 import { loadChoice, saveChoice } from './services/choiceStorage';
 import { forgetTours } from './services/tourStorage';
 import type { SavedChoice } from './types/preferences';
-import { originLabel } from './utils/places';
+import { HERE_LABEL, originLabel } from './utils/places';
 import { summarize } from './utils/preferences';
 
 const MINUTE_OPTIONS = [15, 30, 60];
@@ -85,6 +85,7 @@ export function App() {
         key={`${status.result.place?.name}-${status.session.seen.length}`}
         result={status.result}
         around={originLabel(status.session.origin)}
+        startCity={status.session.origin.label === HERE_LABEL ? null : status.session.origin.label}
         finding={status.finding}
         notice={status.notice}
         visits={explorations.visits}

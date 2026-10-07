@@ -20,6 +20,8 @@ interface ResultCardProps {
   result: RecommendResponse;
   /** Where suggestions start, e.g. "Seoul" or "your location". */
   around: string;
+  /** The city searched from, for the directions; null when starting from the person's location. */
+  startCity: string | null;
   /** True while another place is being looked up. */
   finding: boolean;
   notice: string | null;
@@ -34,6 +36,7 @@ interface ResultCardProps {
 export function ResultCard({
   result,
   around,
+  startCity,
   finding,
   notice,
   visits,
@@ -48,6 +51,8 @@ export function ResultCard({
   const outfit = (outfits.find((option) => option.fit === fit) ?? outfits[0]).outfit;
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
+  const directions =
+    destination && directionsUrl({ origin, startCity, destination, bikeStation: place ? bikeStation : null });
   const routeCaption = describeRoute(result);
   const note = place && placeNote(visits, place);
 
@@ -108,7 +113,12 @@ export function ResultCard({
       )}
       {preview && (
         <Suspense fallback={null}>
-          <WalkPreview input={preview.input} outfit={preview.outfit} onClose={() => setPreview(null)} />
+          <WalkPreview
+            input={preview.input}
+            outfit={preview.outfit}
+            directions={directions}
+            onClose={() => setPreview(null)}
+          />
         </Suspense>
       )}
 
@@ -146,14 +156,8 @@ export function ResultCard({
         </section>
       )}
 
-      {isGo && destination && (
-        <a
-          className="primary"
-          data-tour="directions"
-          href={place ? directionsUrl(place, bikeStation) : directionsUrl(destination)}
-          target="_blank"
-          rel="noreferrer"
-        >
+      {isGo && destination && directions && (
+        <a className="primary" data-tour="directions" href={directions} target="_blank" rel="noreferrer">
           {t.directions(Boolean(place && bikeStation), destination.name)}
         </a>
       )}

@@ -104,6 +104,7 @@ flowchart LR
 5. **Reuse instead of repeat.** One in-memory cache keeps the same suggestion for 10 minutes, weather within about 1 km for 10 minutes, and place searches and routes for a day. A six-step session went from 58.8 s to 39.2 s ([benchmark](docs/benchmarks/caching.md)).
 6. **Check-ins stay on the device.** "I'm here" compares your location with the place in the browser, and nothing is sent. The built app keeps working offline, so you can check in with no signal.
 7. **The walk preview is made in the browser.** MapLibre draws a 3D flyover on OpenFreeMap tiles, the Web Audio API makes the music, and MediaRecorder records both into a video.
+8. **Directions with real names.** In Korea, where Google Maps has no walking routes, the button opens Kakao Map with the start and the place by name and exact spot; elsewhere it opens Google Maps by name.
 
 With `SENTRY_DSN` set, each suggestion shows up in Sentry as one trace:
 
