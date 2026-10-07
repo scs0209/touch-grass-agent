@@ -161,6 +161,8 @@ changed since the README was last checked and `README.md` wasn't touched.
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
 - `apps/server/src/cache.ts`: the shared in-memory cache (TTL, shared in-flight requests, stale fallback).
   Use it for any new upstream call instead of a hand-made `Map`; never cache realtime data like bike counts.
+- `scripts/bench/` and `docs/benchmarks/caching.md`: the before/after caching benchmark. After changing a cache,
+  rerun `node scripts/bench/compare.mjs <before> <after>` and update the page, its chart, and its raw results.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
