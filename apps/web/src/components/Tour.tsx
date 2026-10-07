@@ -3,7 +3,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTour } from '../hooks/useTour';
 import { useMessages } from '../i18n';
 import type { TourId } from '../types/tour';
-import { placeTooltip } from '../utils/tour';
+import { clipOutside, placeTooltip } from '../utils/tour';
 
 /** Room around the highlighted element, so its border and shadow stay inside the bright area. */
 const SPOTLIGHT_PAD = 6;
@@ -37,17 +37,17 @@ export function Tour({ id }: { id: TourId }) {
     ? ({ top: place.top, left: place.left, '--arrow-x': `${place.arrowX}px` } as CSSProperties)
     : { visibility: 'hidden' };
 
+  const spotlight = {
+    top: target.top - SPOTLIGHT_PAD,
+    left: target.left - SPOTLIGHT_PAD,
+    width: target.width + 2 * SPOTLIGHT_PAD,
+    height: target.height + 2 * SPOTLIGHT_PAD,
+  };
+
   return (
     <div className="tour">
-      <div
-        className="tour-spotlight"
-        style={{
-          top: target.top - SPOTLIGHT_PAD,
-          left: target.left - SPOTLIGHT_PAD,
-          width: target.width + 2 * SPOTLIGHT_PAD,
-          height: target.height + 2 * SPOTLIGHT_PAD,
-        }}
-      />
+      <div className="tour-backdrop" style={{ clipPath: clipOutside(spotlight) }} />
+      <div className="tour-spotlight" style={spotlight} />
       <div
         ref={tipRef}
         className={`panel tour-tip ${place?.side ?? ''}`}

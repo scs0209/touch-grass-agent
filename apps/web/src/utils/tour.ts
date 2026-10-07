@@ -7,6 +7,13 @@ const ARROW_INSET = 24;
 
 type Size = { width: number; height: number };
 
+/** Covers the whole screen except the box, so taps inside the box reach the page under it. */
+export function clipOutside({ top, left, width, height }: Box) {
+  const right = left + width;
+  const bottom = top + height;
+  return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px ${top}px)`;
+}
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
 
 /**

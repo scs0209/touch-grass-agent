@@ -23,9 +23,17 @@ export function useTour(id: TourId) {
     return () => cancelAnimationFrame(frame);
   }, [id]);
 
+  const finish = useCallback(() => {
+    markTourSeen(id);
+    setSteps(null);
+  }, [id]);
+
   useEffect(() => {
     const element = step && findTarget(step);
     if (!element) return;
+    // Following the highlighted link or button leaves or covers this screen, so the tour has nothing left to point at.
+    const actionable = element.matches('a, button');
+    if (actionable) element.addEventListener('click', finish);
     const measure = () => {
       const { top, left, width, height } = element.getBoundingClientRect();
       setTarget({ top, left, width, height });
@@ -43,13 +51,9 @@ export function useTour(id: TourId) {
       resized.disconnect();
       window.removeEventListener('scroll', measure, true);
       window.removeEventListener('resize', measure);
+      if (actionable) element.removeEventListener('click', finish);
     };
-  }, [step]);
-
-  const finish = useCallback(() => {
-    markTourSeen(id);
-    setSteps(null);
-  }, [id]);
+  }, [step, finish]);
 
   const next = () => (index + 1 < count ? setIndex(index + 1) : finish());
   const back = () => setIndex(Math.max(0, index - 1));

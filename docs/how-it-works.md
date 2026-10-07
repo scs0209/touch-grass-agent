@@ -61,7 +61,7 @@ To take it outside, open it on your phone from your Mac over Tailscale ([Use it 
 ## Screens
 
 - `apps/web` shows the questionnaire on the first visit, the suggestion with things to do, a weather panel (sky icon, hourly rain chance for the next 3 hours, air quality, UV, wind, and sunset), the route with Leaflet + OpenStreetMap (with a "Full map" button that opens it full screen with scroll and pinch zoom; Esc or ✕ closes it), and the outfit as a layered SVG avatar next to item cards.
-- The tours (`apps/web/src/components/Tour.tsx`) dim the screen around one element at a time and point a card at it from below, or from above when there's no room, with Skip, Back, and Next (Esc skips); a step whose element isn't on screen is left out. Finishing or skipping a tour is remembered in localStorage, so each shows once, and editing your answers doesn't bring it back.
+- The tours (`apps/web/src/components/Tour.tsx`) dim the screen around one element at a time and point a card at it from below, or from above when there's no room, with Skip, Back, and Next (Esc skips); a step whose element isn't on screen is left out. The highlighted element still works while the rest of the screen ignores taps, and tapping a highlighted button or link (like the directions or the preview) ends the tour, since it opens something the tour would otherwise cover. Finishing or skipping a tour is remembered in localStorage, so each shows once, and editing your answers doesn't bring it back.
 
 ## Walk preview
 

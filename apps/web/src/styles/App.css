@@ -687,6 +687,13 @@ input,
   position: fixed;
   inset: 0;
   z-index: 3000;
+  pointer-events: none;
+}
+
+.tour-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
 }
 
 .tour-spotlight {
@@ -707,6 +714,7 @@ input,
   box-sizing: border-box;
   /* Solid, so the arrow and the card read as one shape over the dimmed page. */
   background: rgb(250, 252, 248);
+  pointer-events: auto;
 }
 
 .tour-tip::before {
