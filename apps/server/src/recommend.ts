@@ -86,12 +86,17 @@ const ID_PREFIX: Record<PlaceKind, string> = { park: 'P', landmark: 'L' };
  * Parks first, as always; asking again after a park looks at landmarks, and the other kind stands in when one
  * runs out, so repeated asks alternate between them.
  */
-async function walkablePlaces(origin: LatLon, radiusM: number, exclude: string[], varyFrom: PlaceKind | null) {
+async function placesInTurn(
+  origin: LatLon,
+  radiusM: number,
+  varyFrom: PlaceKind | null,
+  { label, ...options }: { label: string; exclude: string[]; beyondM?: number; idPrefix?: string },
+) {
   const order: PlaceKind[] = varyFrom === 'park' ? ['landmark', 'park'] : ['park', 'landmark'];
   for (const kind of order) {
     const places = await optional(
-      getNearbyPlaces(origin, radiusM, { kind, exclude, idPrefix: ID_PREFIX[kind] }),
-      `${kind}s`,
+      getNearbyPlaces(origin, radiusM, { idPrefix: ID_PREFIX[kind], ...options, kind }),
+      `${label} ${kind}s`,
       [],
     );
     if (places.length > 0) return places;
@@ -99,7 +104,7 @@ async function walkablePlaces(origin: LatLon, radiusM: number, exclude: string[]
   return [];
 }
 
-/** Parks on foot, plus farther ones a Ddareungi can reach when riding is possible. */
+/** Places on foot, plus farther ones a Ddareungi can reach when riding is possible. */
 async function findParks(
   origin: LatLon,
   availableMinutes: number,
@@ -108,18 +113,15 @@ async function findParks(
 ): Promise<Park[]> {
   if (place) return pinnedPark(origin, place, availableMinutes);
   const walkRadius = walkableRadiusM(availableMinutes);
-  const walkPlaces = await walkablePlaces(origin, walkRadius, excludePlaces, varyFrom);
+  const walkPlaces = await placesInTurn(origin, walkRadius, varyFrom, { label: 'walkable', exclude: excludePlaces });
   const station = firstStationWithBikes(await stations);
   const ridePlaces = station
-    ? await optional(
-        getNearbyPlaces(origin, rideableRadiusM(availableMinutes), {
-          beyondM: walkRadius,
-          idPrefix: 'B',
-          exclude: excludePlaces,
-        }),
-        'bike parks',
-        [],
-      )
+    ? await placesInTurn(origin, rideableRadiusM(availableMinutes), varyFrom, {
+        label: 'bike',
+        exclude: excludePlaces,
+        beyondM: walkRadius,
+        idPrefix: 'B',
+      })
     : [];
   const newRidePlaces = ridePlaces.filter((place) => !walkPlaces.some((walkPlace) => walkPlace.name === place.name));
   return withDetails(origin, walkPlaces, station ? { station, places: newRidePlaces } : null, availableMinutes);

@@ -18,7 +18,7 @@ Rules:
   Name it in the activity exactly as written in nearbyParks, in its original script (Korean names stay
   in Korean); never translate or romanize it. Only use ids that appear in the input.
   Each entry's kind is "park" for a park or green space, or "landmark" for a well-known sight such as a
-  palace, shrine, historic house, or hanok village; for a landmark, suggest walking there and looking around.
+  palace, shrine, historic house, or hanok village; for a landmark, suggest going there and looking around.
   If mustPickPlace is true, the person asked for another place or picked this one, so with verdict "go"
   always pick one of nearbyParks instead of a walk around the neighborhood.
   Every park with bikeOnly false is reachable on foot and back within the time, so prefer one that makes good use of
