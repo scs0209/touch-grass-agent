@@ -143,10 +143,13 @@ left (needs a decision, can't be verified, or outside the request).
 ### Keep the README in sync
 
 After any change to behavior, setup, environment variables, data sources, or the UI, check
-`README.md` against the change before reporting, and update it in the same task.
+`README.md` and `docs/how-it-works.md` against the change before reporting, and update them in the same task.
 
-- Text: the intro, "Run locally", "How it works", and "Credits" must describe what the code does now.
-  Verify claims against the code (versions, env var names only, radii, timeouts), not from memory.
+- Text: the README's intro, "Run locally", "How it works", and "Credits", and every section of
+  `docs/how-it-works.md`, must describe what the code does now. Verify claims against the code (versions,
+  env var names only, radii, timeouts), not from memory.
+- Keep the README short: a one-line summary per idea. Limits, timeouts, cache lifetimes, and step-by-step
+  behavior go in `docs/how-it-works.md`, under the section for that part of the app.
 - Screenshots and the demo GIF in `docs/`: recapture them when the screen they show has changed.
   Use headless Chrome at 430×860 with device scale 2 (860×1720 PNGs), and keep the alt text accurate.
 - Commit README changes with the change they describe, or as a `docs:` commit right after it, then push.
@@ -164,7 +167,7 @@ This file is the only place to edit the rules.
 | Codex | reads `AGENTS.md` | `.codex/hooks.json` (trust it once with `/hooks`) | `.agents/skills/` |
 
 All three Stop hooks run `scripts/readme-check.mjs`. It reminds the agent once when files under `apps/`
-changed since the README was last checked and `README.md` wasn't touched.
+changed since the README was last checked and neither `README.md` nor `docs/how-it-works.md` was touched.
 
 ## Where things are
 
