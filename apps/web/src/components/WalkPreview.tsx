@@ -5,6 +5,7 @@ import { drawFilmFrame, FILM_HEIGHT, FILM_WIDTH, type Film, loadFilm } from '../
 import { BPM, type Music, moodFor, playMusic } from '../preview/music';
 import { FILM_BITS_PER_SECOND, type Recording, startRecording, VIDEO_BITS_PER_SECOND } from '../preview/recording';
 import { type Assets, buildStory, drawFrame, HEIGHT, WIDTH } from '../preview/story';
+import { keepVideo, recordedVideo, videoKey } from '../preview/videoCache';
 import type { Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
 import { directionsUrl } from '../utils/directions';
@@ -35,21 +36,41 @@ interface WalkPreviewProps {
 
 export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const assetsRef = useRef<Assets | null>(null);
   const filmRef = useRef<Film | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const runRef = useRef<Run | null>(null);
   const mutedRef = useRef(false);
-  const [phase, setPhase] = useState<Phase>('loading');
+  const still = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  const key = useMemo(() => videoKey(input, outfit, still), [input, outfit, still]);
+  // Read once: a preview recorded in this same open stays live, so Replay keeps redrawing it.
+  const [recorded] = useState(() => recordedVideo(key));
+  const [phase, setPhase] = useState<Phase>(recorded ? 'playing' : 'loading');
   const [hasFilm, setHasFilm] = useState(false);
   const [muted, setMuted] = useState(false);
   const [video, setVideo] = useState<Video | null>(null);
 
   const mood = moodFor(input.conditions.sky, input.conditions.isDay);
   const story = useMemo(() => buildStory(input, BPM[mood]), [input, mood]);
-  const still = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   const canShare = video !== null && navigator.canShare?.({ files: [video.file] }) === true;
+  const canvasWidth = hasFilm ? FILM_WIDTH : WIDTH;
+  const canvasHeight = hasFilm ? FILM_HEIGHT : HEIGHT;
+
+  async function playRecorded() {
+    const element = videoRef.current;
+    if (!element) return;
+    element.currentTime = 0;
+    try {
+      await element.play();
+      setPhase('playing');
+    } catch {
+      setPhase('blocked');
+    }
+  }
+
+  const start = () => void (recorded ? playRecorded() : play());
 
   function stopRun() {
     const run = runRef.current;
@@ -92,8 +113,14 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
     const startAt = audio.currentTime + 0.15;
     const music = playMusic(audio, mood, startAt, total, [speakers, tape]);
 
-    const recording = startRecording(canvas, tape.stream, film ? FILM_BITS_PER_SECOND : VIDEO_BITS_PER_SECOND, (file) =>
-      setVideo({ url: URL.createObjectURL(file), file }),
+    const recording = startRecording(
+      canvas,
+      tape.stream,
+      film ? FILM_BITS_PER_SECOND : VIDEO_BITS_PER_SECOND,
+      (file) => {
+        keepVideo(key, file);
+        setVideo({ url: URL.createObjectURL(file), file });
+      },
     );
     const run: Run = { frame: 0, music, recording, speakers };
     runRef.current = run;
@@ -113,7 +140,17 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
     run.frame = requestAnimationFrame(tick);
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the preview plays once per open; later changes to the result don't restart it.
   useEffect(() => {
+    const player = videoRef.current;
+    if (recorded && player) {
+      // Set here rather than as a prop: React setting the same src again would restart the video.
+      const url = URL.createObjectURL(recorded);
+      player.src = url;
+      setVideo({ url, file: recorded });
+      void playRecorded();
+      return () => player.pause();
+    }
     let cancelled = false;
     const abort = new AbortController();
     // The 3D flyover when the map loads; otherwise the illustrated story.
@@ -144,12 +181,12 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
       void audioRef.current?.close();
       audioRef.current = null;
     };
-    // The preview plays once per open; later changes to the result don't restart it.
   }, []);
 
   useEffect(() => {
     mutedRef.current = muted;
     if (runRef.current) runRef.current.speakers.gain.value = muted ? 0 : 1;
+    if (videoRef.current) videoRef.current.muted = muted;
   }, [muted]);
 
   useEffect(
@@ -178,17 +215,18 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
       aria-label={`Preview of your ${input.bikeStation ? 'ride' : 'walk'} to ${input.placeName}`}
     >
       <div className="preview-stage">
-        <canvas
-          ref={canvasRef}
-          className="preview-canvas"
-          width={hasFilm ? FILM_WIDTH : WIDTH}
-          height={hasFilm ? FILM_HEIGHT : HEIGHT}
-        />
+        {recorded ? (
+          // biome-ignore lint/a11y/useMediaCaption: the only sound is instrumental music; every word is drawn into the frames.
+          <video ref={videoRef} className="preview-canvas" playsInline onEnded={() => setPhase('done')} />
+        ) : (
+          <canvas ref={canvasRef} className="preview-canvas" width={canvasWidth} height={canvasHeight} />
+        )}
         <div ref={avatarRef} hidden>
           <Avatar outfit={outfit} />
         </div>
         <div className="preview-controls">
           <button
+            type="button"
             className="preview-icon"
             onClick={() => setMuted(!muted)}
             aria-pressed={muted}
@@ -196,7 +234,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
           >
             {muted ? '🔇' : '🔊'}
           </button>
-          <button className="preview-icon" onClick={onClose} aria-label="Close preview" autoFocus>
+          <button type="button" className="preview-icon" onClick={onClose} aria-label="Close preview" autoFocus>
             ✕
           </button>
         </div>
@@ -207,7 +245,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
         )}
         {phase === 'error' && <p className="preview-status">Couldn't load the preview.</p>}
         {phase === 'blocked' && (
-          <button className="preview-play" onClick={() => void play()}>
+          <button type="button" className="preview-play" onClick={start}>
             ▶ Play with music
           </button>
         )}
@@ -222,7 +260,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
               {input.bikeStation ? 'Ride' : 'Walk'} to {input.placeName}
             </a>
             <div className="preview-row">
-              <button className="secondary" onClick={() => void play()}>
+              <button type="button" className="secondary" onClick={start}>
                 Replay
               </button>
               {video && (
@@ -231,7 +269,7 @@ export function WalkPreview({ input, outfit, onClose }: WalkPreviewProps) {
                 </a>
               )}
               {canShare && (
-                <button className="secondary" onClick={() => void share()}>
+                <button type="button" className="secondary" onClick={() => void share()}>
                   Share
                 </button>
               )}

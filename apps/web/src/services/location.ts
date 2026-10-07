@@ -17,8 +17,24 @@ export function locationErrorMessage(error: unknown) {
   return LOCATION_ERROR_MESSAGES[code] ?? "Couldn't get your location. Type your city instead.";
 }
 
+type City = LatLon & { name: string };
+
+/** City centers don't move, and Open-Meteo's answer has no cache headers, so each name is looked up once per visit. */
+const cities = new Map<string, Promise<City>>();
+
 /** The city's center and its name as Open-Meteo spells it, e.g. "seoul" becomes "Seoul". */
-export async function geocodeCity(name: string): Promise<LatLon & { name: string }> {
+export function geocodeCity(name: string): Promise<City> {
+  const key = name.trim().toLowerCase();
+  const cached = cities.get(key);
+  if (cached) return cached;
+  const lookup = lookUpCity(name);
+  cities.set(key, lookup);
+  // A failed or unknown name is tried again next time.
+  lookup.catch(() => cities.delete(key));
+  return lookup;
+}
+
+async function lookUpCity(name: string): Promise<City> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(name)}`;
   const response = await fetch(url);
   const body = (await response.json()) as { results?: { latitude: number; longitude: number; name: string }[] };
