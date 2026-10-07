@@ -159,6 +159,8 @@ changed since the README was last checked and `README.md` wasn't touched.
   (Overpass), walking and cycling routes (OSRM), Seoul bikes.
 - `apps/server/src/agent.ts`: the Gemma prompt. `apps/server/src/recommend.ts`: gathering conditions,
   checking the model's answer, and the rule-based fallback. `apps/server/src/workflow.ts`: the Mastra workflow.
+- `apps/server/src/cache.ts`: the shared in-memory cache (TTL, shared in-flight requests, stale fallback).
+  Use it for any new upstream call instead of a hand-made `Map`; never cache realtime data like bike counts.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
@@ -167,5 +169,5 @@ changed since the README was last checked and `README.md` wasn't touched.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions).
   - `constants/`, `types/`: shared labels and types.
   - `preview/`: the walk preview film (`film.ts`, `flyoverMap.ts`), the illustrated fallback (`story.ts`),
-    music, and recording.
+    music, recording, and the recorded-video cache (`videoCache.ts`).
   - `styles/`: `App.css` and `glass-tokens.css`.
