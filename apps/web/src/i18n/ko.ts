@@ -48,7 +48,7 @@ export const ko: Messages = {
   hereLabel: '현재 위치',
 
   home: {
-    title: '나가볼까?',
+    title: '지금 나가도 될까?',
     editAnswers: '답변 수정',
     timeQuestion: '시간이 얼마나 있나요?',
     minutes: (minutes) => `${minutes}분`,
