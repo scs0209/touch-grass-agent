@@ -4,34 +4,6 @@
 
 One tap, one suggestion, then put your phone away.
 
-<p align="center">
-  <img src="docs/demo.gif" width="300" alt="Answering the questionnaire (easy and relaxed, greenery and water, with kids, walking only), choosing 60 minutes in Seoul, getting a walk to 청계천 한빛광장, tapping Another place to get Namsangol Hanok Village instead, the weather, a route map opened full screen and closed again, switching the outfit for people who run cold, then back on the home screen checking in at Namsangol Hanok Village with I'm here, the You made it dialog with the goal ticked off and things to do, and the place added to Your explorations">
-  <img src="docs/preview.gif" width="270" alt="Highlights of the walk preview video: a 3D map of central Seoul with your next 11 minutes and what to wear, a green location puck walking the route to Cheonggyecheon Stream Park past 3D buildings, photos of the park as cards over a soft blurred copy with a thing to do under each, and a pull-back over the neighborhood with Ready when you are, a green underline, and when to leave and be back">
-</p>
-
-<table>
-  <tr>
-    <td align="center" width="33%"><img src="docs/questionnaire.png" width="240" alt="First-visit questionnaire with a button to let the AI decide everything"><br><sub>Pick what you like, or skip</sub></td>
-    <td align="center" width="33%"><img src="docs/tour.png" width="240" alt="Step 2 of 4 of the home tour: the screen is dimmed except the Check right here button, and a card pointing at it says Gemma, running locally, checks the weather, the air, and the parks near you, and picks one place, with Skip, Back, and Next"><br><sub>A short tour of each part</sub></td>
-    <td align="center" width="33%"><img src="docs/home.png" width="240" alt="Home screen with the grass logo next to the title, a summary of the saved answers, an Edit answers button, an Out exploring card asking whether you made it to Tapgol Park with an I'm here button, the time slider, Seoul typed in the city box, and the top of Your explorations"><br><sub>Home: time, city, check-in</sub></td>
-  </tr>
-  <tr>
-    <td align="center" width="33%"><img src="docs/result.png" width="240" alt="Suggested walk to 서소문근린공원 in Jung-gu, Seoul, marked New place for you, with things to do there, an Another place button to try somewhere else around Seoul, the Preview your walk button, and the weather panel"><br><sub>One suggestion with things to do</sub></td>
-    <td align="center" width="33%"><img src="docs/result-ko.png" width="240" alt="The same result screen in Korean: 밖으로 나가요, a walk to Sejonggno Park in Jongno-gu, Seoul, marked as the first exploration that completes today's goal, 31분, the reason with the air quality index 46 and 21.6°C, three things to do translated by Gemma, the another place and preview buttons, and the weather panel with 맑음 and 보통 air"><br><sub>The same in Korean</sub></td>
-    <td align="center" width="33%"><img src="docs/map-full.png" width="240" alt="Full-screen map of the walking route from Seoul City Hall to Cheonggyecheon Stream Park, with a close button and the round-trip distance and time at the bottom"><br><sub>Round-trip route on a full map</sub></td>
-  </tr>
-  <tr>
-    <td align="center" width="33%"><img src="docs/outfit-cold.png" width="240" alt="Outfit for people who run cold, shown on an avatar and item cards"><br><sub>What to wear, for people who run cold</sub></td>
-    <td align="center" width="33%"><img src="docs/tour-result.png" width="240" alt="Step 3 of 3 of the first-result tour: the screen is dimmed except the I'm here check-in under the directions, and a card pointing at it says to tap I'm here at the place, and that your location is compared on this device and isn't sent or saved"><br><sub>Check in when you get there</sub></td>
-    <td align="center" width="33%"><img src="docs/phone-hint.png" width="240" alt="Take it outside dialog over the home screen on the Mac, opened from Use it on your phone between How it works and the 한국어 language switch: Gemma runs on this computer and Tailscale, free for personal use, connects your phone, with three steps (install Tailscale on both, run pnpm phone and tailscale serve --bg 4173, open the ts.net address on your phone), a Full setup steps link, and a close button"><br><sub>Open it on your phone</sub></td>
-  </tr>
-  <tr>
-    <td align="center" width="33%"><img src="docs/arrival.png" width="240" alt="Check-in at Tapgol Park: You made it, New place for you, today's suggestion and 3 new places this week both ticked off, the things to do there, and a Put my phone away button"><br><sub>You made it</sub></td>
-    <td align="center" width="33%"><img src="docs/arrival-ko.png" width="240" alt="Check-in in Korean on the result screen: 도착했어요! at Sejonggno Park, 첫 번째 탐험, today's goal ticked off, 1 of 3 new places this week, the new badge 첫걸음, two things to do translated by Gemma, and the 휴대폰 넣어두기 button"><br><sub>Check-in in Korean</sub></td>
-    <td align="center" width="33%"><img src="docs/explorations.png" width="240" alt="Your explorations: 3 places, 1 city, 2 weeks in a row, this week 2 against 1 last week and a best week of 2, three goals with progress bars, the badges First steps, Park and landmark, and Local explorer, the last three places explored with their dates, and Recent places below"><br><sub>Your explorations</sub></td>
-  </tr>
-</table>
-
 It checks the weather, the air, and the parks near you, and Gemma, running on your own computer, suggests one outdoor plan that fits the time you have. Then it tells you to put your phone away.
 
 - **One plan, not a feed.** A park or landmark, a few things to do there, a round-trip route that fits your time, and what to wear.
@@ -41,6 +13,15 @@ It checks the weather, the air, and the parks near you, and Gemma, running on yo
 - **Local AI.** Gemma runs on your computer through Ollama: no AI service, no key, no cost. Check-ins compare your location in the browser and never send it.
 - **Take it outside.** Open it on your phone from your Mac over Tailscale; check-ins work even with no signal.
 - **English and Korean.** It follows your browser's language, and one tap switches it.
+
+## Demo
+
+From the questionnaire to checking in at the park, and the walk preview it makes for every suggestion:
+
+<p align="center">
+  <img src="docs/demo.gif" width="300" alt="Answering the questionnaire (easy and relaxed, greenery and water, with kids, walking only), choosing 60 minutes in Seoul, getting a walk to 청계천 한빛광장, tapping Another place to get Namsangol Hanok Village instead, the weather, a route map opened full screen and closed again, switching the outfit for people who run cold, then back on the home screen checking in at Namsangol Hanok Village with I'm here, the You made it dialog with the goal ticked off and things to do, and the place added to Your explorations">
+  <img src="docs/preview.gif" width="270" alt="Highlights of the walk preview video: a 3D map of central Seoul with your next 11 minutes and what to wear, a green location puck walking the route to Cheonggyecheon Stream Park past 3D buildings, photos of the park as cards over a soft blurred copy with a thing to do under each, and a pull-back over the neighborhood with Ready when you are, a green underline, and when to leave and be back">
+</p>
 
 ## Run locally
 
@@ -113,6 +94,44 @@ With `SENTRY_DSN` set, each suggestion shows up in Sentry as one trace:
 <p align="center"><img src="docs/sentry-trace.png" alt="Sentry trace of one recommendation: the OSRM round-trip request runs during gather-conditions, which stops waiting for the slow Overpass request after 3 seconds, so plan-route takes 1 ms" width="800"></p>
 
 Every limit, timeout, and cache lifetime is in [docs/how-it-works.md](docs/how-it-works.md).
+
+## Screens
+
+### Getting a suggestion
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/questionnaire.png" width="240" alt="First-visit questionnaire with a button to let the AI decide everything"><br><sub>Pick what you like, or skip</sub></td>
+    <td align="center" width="33%"><img src="docs/home.png" width="240" alt="Home screen with the grass logo next to the title, a summary of the saved answers, an Edit answers button, an Out exploring card asking whether you made it to Tapgol Park with an I'm here button, the time slider, Seoul typed in the city box, and the top of Your explorations"><br><sub>Home: time, city, check-in</sub></td>
+    <td align="center" width="33%"><img src="docs/result.png" width="240" alt="Suggested walk to 서소문근린공원 in Jung-gu, Seoul, marked New place for you, with things to do there, an Another place button to try somewhere else around Seoul, the Preview your walk button, and the weather panel"><br><sub>One suggestion with things to do</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/result-ko.png" width="240" alt="The same result screen in Korean: 밖으로 나가요, a walk to Sejonggno Park in Jongno-gu, Seoul, marked as the first exploration that completes today's goal, 31분, the reason with the air quality index 46 and 21.6°C, three things to do translated by Gemma, the another place and preview buttons, and the weather panel with 맑음 and 보통 air"><br><sub>The same in Korean</sub></td>
+    <td align="center" width="33%"><img src="docs/map-full.png" width="240" alt="Full-screen map of the walking route from Seoul City Hall to Cheonggyecheon Stream Park, with a close button and the round-trip distance and time at the bottom"><br><sub>Round-trip route on a full map</sub></td>
+    <td align="center" width="33%"><img src="docs/outfit-cold.png" width="240" alt="Outfit for people who run cold, shown on an avatar and item cards"><br><sub>What to wear, for people who run cold</sub></td>
+  </tr>
+</table>
+
+### Going out
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/arrival.png" width="240" alt="Check-in at Tapgol Park: You made it, New place for you, today's suggestion and 3 new places this week both ticked off, the things to do there, and a Put my phone away button"><br><sub>You made it</sub></td>
+    <td align="center" width="33%"><img src="docs/arrival-ko.png" width="240" alt="Check-in in Korean on the result screen: 도착했어요! at Sejonggno Park, 첫 번째 탐험, today's goal ticked off, 1 of 3 new places this week, the new badge 첫걸음, two things to do translated by Gemma, and the 휴대폰 넣어두기 button"><br><sub>Check-in in Korean</sub></td>
+    <td align="center" width="33%"><img src="docs/explorations.png" width="240" alt="Your explorations: 3 places, 1 city, 2 weeks in a row, this week 2 against 1 last week and a best week of 2, three goals with progress bars, the badges First steps, Park and landmark, and Local explorer, the last three places explored with their dates, and Recent places below"><br><sub>Your explorations</sub></td>
+  </tr>
+</table>
+
+### Help along the way
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/tour.png" width="240" alt="Step 2 of 4 of the home tour: the screen is dimmed except the Check right here button, and a card pointing at it says Gemma, running locally, checks the weather, the air, and the parks near you, and picks one place, with Skip, Back, and Next"><br><sub>A short tour of each part</sub></td>
+    <td align="center" width="33%"><img src="docs/tour-result.png" width="240" alt="Step 3 of 3 of the first-result tour: the screen is dimmed except the I'm here check-in under the directions, and a card pointing at it says to tap I'm here at the place, and that your location is compared on this device and isn't sent or saved"><br><sub>Check in when you get there</sub></td>
+    <td align="center" width="33%"><img src="docs/phone-hint.png" width="240" alt="Take it outside dialog over the home screen on the Mac, opened from Use it on your phone between How it works and the 한국어 language switch: Gemma runs on this computer and Tailscale, free for personal use, connects your phone, with three steps (install Tailscale on both, run pnpm phone and tailscale serve --bg 4173, open the ts.net address on your phone), a Full setup steps link, and a close button"><br><sub>Open it on your phone</sub></td>
+  </tr>
+</table>
+
 
 ## Agent sessions
 
