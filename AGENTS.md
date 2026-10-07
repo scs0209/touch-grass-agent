@@ -27,7 +27,7 @@ It is a pnpm monorepo: `apps/server` (Hono + Mastra, port 8787) and `apps/web` (
 
    | Variable | What it adds | How to get it |
    |---|---|---|
-   | `SEOUL_OPEN_API_KEY` | Ddareungi (Seoul public bike) stations within 500 m and parks reachable by bike, only in Seoul, for 30+ minutes, and when the user answered yes to "Public bikes?" | Sign in to Seoul Open Data Plaza and request a general key at https://data.seoul.go.kr/together/mypage/actkeyMain.do. The API used is https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do (`bikeList`). |
+   | `SEOUL_OPEN_API_KEY` | Ddareungi (Seoul public bike) stations within 500 m and parks or landmarks reachable by bike, only in Seoul, for 30+ minutes, and when the user answered yes to "Public bikes?" | Sign in to Seoul Open Data Plaza and request a general key at https://data.seoul.go.kr/together/mypage/actkeyMain.do. The API used is https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do (`bikeList`). |
    | `MAPILLARY_ACCESS_TOKEN` | Real photos of the park (Mapillary + Wikimedia Commons) near the end of the 3D flyover preview; without it the flyover stays on the map. Opening the preview sends the park's location and the point where the route meets it to Mapillary, and the park's location and name to Wikimedia. | Sign in at https://www.mapillary.com/dashboard/developers, register an application with Read permission, and copy its Client Token (starts with `MLY|`). |
  | `SENTRY_DSN` | Traces of every request, step, model call, and outgoing API request | Create a free account at https://sentry.io/signup/, create a Node.js project, and copy its DSN (https://docs.sentry.io/concepts/key-terms/dsn-explainer/). Traces include the user's location and questionnaire answers. |
 
