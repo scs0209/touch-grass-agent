@@ -636,7 +636,14 @@ input,
 
 .phone-hint h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.25rem;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
 }
 
 .phone-hint ol {
@@ -771,7 +778,7 @@ input,
   cursor: default;
 }
 
-.arrival-backdrop {
+.dialog-backdrop {
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -782,7 +789,8 @@ input,
   background: rgba(31, 42, 31, 0.35);
 }
 
-.arrival {
+.arrival,
+.phone-hint {
   width: 100%;
   max-width: 372px;
   box-sizing: border-box;

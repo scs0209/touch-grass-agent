@@ -180,7 +180,7 @@ changed since the README was last checked and `README.md` wasn't touched.
   put other code in the matching folder:
  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `PhoneHint`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
  - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useTour`, `useEscapeKey`).
- - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, the hidden phone tip, and registering the offline service worker (`offline.ts`).
+ - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, and registering the offline service worker (`offline.ts`).
  - Tour steps live in `constants/tour.ts` and point at elements by their `data-tour` attribute; keep it when moving those elements.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions, and `explore.ts`
     for check-in distance, goals, badges, and weekly records; check-ins are the only thing that moves them).

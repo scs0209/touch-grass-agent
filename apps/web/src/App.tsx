@@ -160,11 +160,12 @@ export function App() {
         onRemove={recentPlaces.remove}
       />
 
-      <PhoneHint />
-
-      <button className="link" onClick={replayTour} type="button">
-        How it works
-      </button>
+      <div className="footer-links">
+        <button className="link" onClick={replayTour} type="button">
+          How it works
+        </button>
+        <PhoneHint />
+      </div>
       <Tour key={tourRun} id="home" />
     </main>
   );

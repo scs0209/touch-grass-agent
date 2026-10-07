@@ -75,7 +75,7 @@ function ArrivalDialog({ place, summary, onClose }: ArrivalDialogProps) {
   }, []);
 
   return (
-    <div className="arrival-backdrop">
+    <div className="dialog-backdrop">
       <div className="panel arrival" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
         <p className="verdict">You made it.</p>
         <h2 id="arrival-title">{place.name}</h2>
