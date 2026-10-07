@@ -31,7 +31,11 @@ export interface Park extends Place {
   bikeOnly: boolean;
   /** Measured bike trip for bike-only parks: walk to the station, ride there and back, walk home. */
   bikeTripMin: number | null;
+  /** The person checked in there before, so a place they haven't seen is the better pick. */
+  explored: boolean;
 }
+
+type MeasuredPark = Omit<Park, 'explored'>;
 
 export interface Conditions {
   availableMinutes: number;
@@ -51,6 +55,8 @@ export interface PlaceSearch {
   excludePlaces?: string[];
   varyFrom?: PlaceKind | null;
   place?: PinnedPlace | null;
+  /** Names of places the person has checked in at around here. */
+  exploredPlaces?: string[];
 }
 
 const MODEL_ATTEMPTS = 2;
@@ -110,7 +116,7 @@ async function findParks(
   availableMinutes: number,
   stations: Promise<BikeStation[] | null>,
   { excludePlaces = [], varyFrom = null, place }: PlaceSearch,
-): Promise<Park[]> {
+): Promise<MeasuredPark[]> {
   if (place) {
     const station = place.byBike ? firstStationWithBikes(await stations) : undefined;
     return pinnedPark(origin, place, availableMinutes, station);
@@ -140,7 +146,7 @@ async function pinnedPark(
   pinned: PinnedPlace,
   availableMinutes: number,
   station: BikeStation | undefined,
-): Promise<Park[]> {
+): Promise<MeasuredPark[]> {
   const place = (id: string): Place => ({
     id,
     name: pinned.name,
@@ -166,7 +172,7 @@ async function withDetails(
   ride: { station: BikeStation; places: Place[] } | null,
   availableMinutes: number,
   { keepAll = false }: { keepAll?: boolean } = {},
-): Promise<Park[]> {
+): Promise<MeasuredPark[]> {
   const ridePlaces = ride?.places ?? [];
   const places = [...walkPlaces, ...ridePlaces];
   if (places.length === 0) return [];
@@ -215,18 +221,19 @@ export async function getConditions(
     preferences?.cycling === true && (availableMinutes >= MIN_BIKE_MINUTES || search.place?.byBike)
       ? optional(getNearbyBikeStations(origin.lat, origin.lon), 'bike stations', null)
       : Promise.resolve(null);
-  const [weather, airQuality, nearbyBikeStations, nearbyParks] = await Promise.all([
+  const [weather, airQuality, nearbyBikeStations, parks] = await Promise.all([
     getWeather(origin.lat, origin.lon),
     getAirQuality(origin.lat, origin.lon),
     stations,
     findParks(origin, availableMinutes, stations, search),
   ]);
+  const explored = new Set(search.exploredPlaces);
   return {
     availableMinutes,
     weather,
     airQuality,
     nearbyBikeStations,
-    nearbyParks,
+    nearbyParks: parks.map((park) => ({ ...park, explored: explored.has(park.name) })),
     baselineOutfit: baselineOutfit(weather, airQuality),
     preferences,
     mustPickPlace: Boolean(search.place) || (search.excludePlaces?.length ?? 0) > 0,
@@ -508,18 +515,29 @@ function wantedFeatures(preferences: Preferences | null): Set<Feature> {
 const matchScore = (park: Park, wanted: Set<Feature>) =>
   park.features?.filter((feature) => wanted.has(feature)).length ?? 0;
 
+/** The answers come first; among parks that match them equally, one the person hasn't explored wins. */
+const rank = (park: Park, wanted: Set<Feature>) => matchScore(park, wanted) * 2 + (park.explored ? 0 : 1);
+
 /**
- * The park with the most wanted features; parks are sorted by distance, so ties go to the farthest, which uses
- * the time best. Bike-only parks count only for a bike trip.
+ * The park with the most wanted features, preferring new ones; parks are sorted by distance, so ties go to the
+ * farthest, which uses the time best. Bike-only parks count only for a bike trip.
  */
 function preferredPark({ nearbyParks, preferences }: Conditions, byBike = false) {
   const wanted = wantedFeatures(preferences);
   return nearbyParks
     .filter((park) => byBike || !park.bikeOnly)
     .reduce<Park | undefined>(
-      (best, park) => (!best || matchScore(park, wanted) >= matchScore(best, wanted) ? park : best),
+      (best, park) => (!best || rank(park, wanted) >= rank(best, wanted) ? park : best),
       undefined,
     );
+}
+
+/** A park the person hasn't explored that matches the answers as well, when the model picked one they have. */
+function newerPark(park: Park, conditions: Conditions) {
+  if (!park.explored) return undefined;
+  const wanted = wantedFeatures(conditions.preferences);
+  const best = preferredPark(conditions);
+  return best && !best.explored && matchScore(best, wanted) >= matchScore(park, wanted) ? best : undefined;
 }
 
 /** A park that matches the answers when the model's pick is known to match none of them. */
@@ -586,6 +604,8 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
   const stationAllowed = modelStation !== undefined && (saysBike || modelPark?.bikeOnly);
   // Gemma treats the answers as soft hints, so step in when it skips a park that clearly matches them.
   const matchingPark = modelPark && !stationAllowed ? betterMatch(modelPark, conditions) : undefined;
+  // The point is to get people somewhere new, and Gemma sometimes ignores explored.
+  const newPark = modelPark && !stationAllowed && !matchingPark ? newerPark(modelPark, conditions) : undefined;
   // A park that isn't on the list (often a romanized Korean name with no placeId) can't be mapped or routed,
   // and someone who asked for another place shouldn't get a walk around the block instead.
   const needsListedPark = PARK_WORDS.test(modelActivity) || conditions.mustPickPlace;
@@ -593,7 +613,7 @@ export function sanitize(recommendation: Recommendation, conditions: Conditions)
     recommendation.verdict === 'go' && !modelPark && needsListedPark && (!stationAllowed || conditions.mustPickPlace)
       ? (preferredPark(conditions, stationAllowed) ?? preferredPark(conditions, true))
       : undefined;
-  const switchedPark = matchingPark ?? unlistedPark;
+  const switchedPark = matchingPark ?? newPark ?? unlistedPark;
   const park = switchedPark ?? modelPark;
   const walk = park ? `Walk to ${park.name} and back` : 'Take a walk around your neighborhood';
   // Small models romanize Korean park names into places that don't exist, or leave stray syllables
@@ -677,6 +697,7 @@ export async function buildResponse(origin: LatLon, conditions: Conditions, chec
           city: place.city,
           area: place.area,
           features: place.features,
+          explored: place.explored,
         }
       : null,
     route,

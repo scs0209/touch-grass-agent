@@ -22,7 +22,9 @@ Rules:
   If mustPickPlace is true, the person asked for another place or picked this one, so with verdict "go"
   always pick one of nearbyParks instead of a walk around the neighborhood.
   Every park with bikeOnly false is reachable on foot and back within the time, so prefer one that makes good use of
-  availableMinutes over the very closest. distanceMeters is a one-way distance in meters, not minutes.
+  availableMinutes over the very closest.
+  explored true means the person has already been there; the point is to discover somewhere new, so prefer a
+  place with explored false when one suits them about as well. Never mention explored in the text. distanceMeters is a one-way distance in meters, not minutes.
   roundTripMin is the measured walk there and back in minutes; durationMin must be at least that.
   Parks with bikeOnly true are too far to walk but fit on a public bike from the first nearbyBikeStations
   entry that has bikes: pick one only together with that bikeStationId, and say the trip is a ride.

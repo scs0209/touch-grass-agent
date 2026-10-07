@@ -71,8 +71,13 @@ const suggestions = createCache<RecommendResponse>({
 });
 
 /** Points about 10 m apart share answers, so a location fix that wobbles slightly still finds its suggestion. */
-const requestKey = ({ lat, lon, excludePlaces, ...rest }: RecommendRequest) =>
-  JSON.stringify({ at: gridKey({ lat, lon }, 4), excludePlaces: [...excludePlaces].sort(), ...rest });
+const requestKey = ({ lat, lon, excludePlaces, exploredPlaces, ...rest }: RecommendRequest) =>
+  JSON.stringify({
+    at: gridKey({ lat, lon }, 4),
+    excludePlaces: [...excludePlaces].sort(),
+    exploredPlaces: [...exploredPlaces].sort(),
+    ...rest,
+  });
 
 async function runWorkflow(request: RecommendRequest): Promise<RecommendResponse> {
   const run = await mastra.getWorkflow('recommendWorkflow').createRun();

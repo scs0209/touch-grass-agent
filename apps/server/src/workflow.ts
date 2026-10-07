@@ -36,9 +36,8 @@ const gatherConditions = createStep({
     'Weather, air quality, parks or landmarks whose round trip fits the time, and Seoul bike stations around the person',
   inputSchema: recommendRequestSchema,
   outputSchema: gathered,
-  execute: async ({ inputData: { lat, lon, availableMinutes, preferences, excludePlaces, varyFrom, place } }) => {
+  execute: async ({ inputData: { lat, lon, availableMinutes, preferences, ...search } }) => {
     const origin = { lat, lon };
-    const search = { excludePlaces, varyFrom, place };
     return { origin, conditions: await getConditions(origin, availableMinutes, preferences ?? null, search) };
   },
 });

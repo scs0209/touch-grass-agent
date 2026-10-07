@@ -39,6 +39,8 @@ export const recommendRequestSchema = latLonSchema.extend({
       byBike: z.boolean().default(false),
     })
     .nullish(),
+  /** Places the person has checked in at around here, so new ones come first. */
+  exploredPlaces: z.array(placeNameSchema).max(200).default([]),
 });
 
 export type RecommendRequest = z.infer<typeof recommendRequestSchema>;
