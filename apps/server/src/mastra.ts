@@ -7,6 +7,7 @@ import { CONDITIONS_TTL_MS } from './conditions/weather.js';
 import { gridKey } from './geo.js';
 import type { RecommendResponse } from './recommend.js';
 import type { RecommendRequest } from './schema.js';
+import { translateResponse, translatorAgent } from './translate.js';
 import { recommendWorkflow } from './workflow.js';
 
 type SentryOptions = NonNullable<NonNullable<ConstructorParameters<typeof SentryExporter>[0]>['options']>;
@@ -49,7 +50,7 @@ const observability = process.env.SENTRY_DSN
   : undefined;
 
 export const mastra = new Mastra({
-  agents: { touchGrassAgent },
+  agents: { touchGrassAgent, translatorAgent },
   workflows: { recommendWorkflow },
   observability,
 });
@@ -70,8 +71,11 @@ const suggestions = createCache<RecommendResponse>({
   },
 });
 
-/** Points about 10 m apart share answers, so a location fix that wobbles slightly still finds its suggestion. */
-const requestKey = ({ lat, lon, excludePlaces, exploredPlaces, ...rest }: RecommendRequest) =>
+/**
+ * Points about 10 m apart share answers, so a location fix that wobbles slightly still finds its suggestion.
+ * Every language shares the English answer it is translated from.
+ */
+const requestKey = ({ lat, lon, excludePlaces, exploredPlaces, language: _language, ...rest }: RecommendRequest) =>
   JSON.stringify({
     at: gridKey({ lat, lon }, 4),
     excludePlaces: [...excludePlaces].sort(),
@@ -88,6 +92,8 @@ async function runWorkflow(request: RecommendRequest): Promise<RecommendResponse
   return result.result;
 }
 
-export function recommend(request: RecommendRequest) {
-  return suggestions.getOrLoad(requestKey(request), () => runWorkflow(request));
+export async function recommend(request: RecommendRequest) {
+  const english = await suggestions.getOrLoad(requestKey(request), () => runWorkflow({ ...request, language: 'en' }));
+  if (request.language === 'en') return english;
+  return translateResponse(english, mastra.getAgent('translatorAgent'));
 }

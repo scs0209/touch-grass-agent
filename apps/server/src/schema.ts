@@ -41,10 +41,14 @@ export const recommendRequestSchema = latLonSchema.extend({
     .nullish(),
   /** Places the person has checked in at around here, so new ones come first. */
   exploredPlaces: z.array(placeNameSchema).max(200).default([]),
+  /** The language the suggestion's text comes back in; Gemma always answers in English first. */
+  language: z.enum(['en', 'ko']).default('en'),
 });
 
 export type RecommendRequest = z.infer<typeof recommendRequestSchema>;
 export type PinnedPlace = NonNullable<RecommendRequest['place']>;
+
+export const geocodeQuerySchema = z.string().trim().min(1).max(100);
 
 export const tripPhotosRequestSchema = z.object({
   /** Where the route meets the park; the same as destination when there is no route. */

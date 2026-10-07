@@ -2,8 +2,9 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { OLLAMA_MODEL } from './agent.js';
 import { fetchTripPhoto, getTripPhotos, PHOTO_CACHE_MS } from './conditions/photos.js';
+import { geocodeCity } from './conditions/places.js';
 import { recommend } from './mastra.js';
-import { recommendRequestSchema, tripPhotosRequestSchema } from './schema.js';
+import { geocodeQuerySchema, recommendRequestSchema, tripPhotosRequestSchema } from './schema.js';
 
 const app = new Hono();
 
@@ -18,6 +19,19 @@ app.post('/api/recommend', async (c) => {
   } catch (error) {
     console.error(error);
     return c.json({ error: 'Could not check the conditions right now. Try again in a minute.' }, 502);
+  }
+});
+
+app.get('/api/geocode', async (c) => {
+  const parsed = geocodeQuerySchema.safeParse(c.req.query('name'));
+  if (!parsed.success) return c.json({ error: 'Invalid city name' }, 400);
+
+  try {
+    const found = await geocodeCity(parsed.data);
+    return found ? c.json(found) : c.json({ error: 'City not found' }, 404);
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: 'Could not look up the city' }, 502);
   }
 });
 

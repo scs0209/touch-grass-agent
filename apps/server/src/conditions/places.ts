@@ -82,6 +82,14 @@ const areaOf = (address: Record<string, string> = {}) =>
 const isLandmark = (result: NominatimResult) =>
   Boolean(result.extratags?.wikidata) && result.extratags?.indoor !== 'yes' && !INDOOR_WORDS.test(result.name);
 
+/** A city's center by name, in any language; the web app's geocoder (Open-Meteo) doesn't know names like "서울". */
+export async function geocodeCity(name: string): Promise<LatLon | null> {
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.search = new URLSearchParams({ q: name, format: 'jsonv2', limit: '1' }).toString();
+  const [result] = await searchNominatim(url);
+  return result ? { lat: Number(result.lat), lon: Number(result.lon) } : null;
+}
+
 /** Straight-line radius reachable on a round trip within the available time. */
 export function walkableRadiusM(availableMinutes: number) {
   return Math.round(((availableMinutes / 2) * WALKING_METERS_PER_MIN) / DETOUR_FACTOR);

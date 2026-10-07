@@ -4,6 +4,12 @@ import { BOTTOMS, EXTRAS, OUTERS, TOPS } from './outfit.js';
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1';
 export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'gemma3:4b';
 
+export const ollamaModel = {
+  id: `local/${OLLAMA_MODEL}`,
+  url: OLLAMA_BASE_URL,
+  apiKey: 'ollama',
+} as const;
+
 const oneOf = (values: readonly string[]) => values.map((value) => `"${value}"`).join('|');
 
 export const touchGrassAgent = new Agent({
@@ -63,9 +69,5 @@ Respond with ONLY a JSON object, no markdown, in this shape:
 {"verdict":"go"|"stay","activity":string,"durationMin":number,"reason":string (weather and air numbers only, no walking time, no park name),"thingsToDo":[string...],"safetyNote":string|null,
 "placeId":string|null,"bikeStationId":string|null,
 "outfit":{"top":${oneOf(TOPS)},"bottom":${oneOf(BOTTOMS)},"outer":${oneOf(OUTERS)},"extras":[${oneOf(EXTRAS)}...],"tip":string}}`,
-  model: {
-    id: `local/${OLLAMA_MODEL}`,
-    url: OLLAMA_BASE_URL,
-    apiKey: 'ollama',
-  },
+  model: ollamaModel,
 });

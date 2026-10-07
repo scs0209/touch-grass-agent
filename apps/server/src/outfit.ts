@@ -40,12 +40,16 @@ function requiredExtras(weather: Weather, airQuality: AirQuality): Outfit['extra
   return extras;
 }
 
+export const feelsLikeTip = (feelsLikeC: number) => `Feels like ${Math.round(feelsLikeC)}°C out there.`;
+export const RUN_COLD_TIP = 'If you run cold, go one layer warmer.';
+export const RUN_WARM_TIP = 'If you run warm, go one layer lighter.';
+
 export function baselineOutfit(weather: Weather, airQuality: AirQuality): Outfit {
   const { layers } = LAYER_BANDS.find((band) => weather.feelsLikeC >= band.minFeelsLikeC)!;
   return {
     ...layers,
     extras: requiredExtras(weather, airQuality),
-    tip: `Feels like ${Math.round(weather.feelsLikeC)}°C out there.`,
+    tip: feelsLikeTip(weather.feelsLikeC),
   };
 }
 
@@ -78,9 +82,9 @@ export function outfitOptions(chosen: Outfit, weather: Weather, airQuality: AirQ
   };
 
   const options: { fit: Fit; outfit: Outfit | null }[] = [
-    { fit: 'cold', outfit: neighbor(bandIndex + 1, 'If you run cold, go one layer warmer.') },
+    { fit: 'cold', outfit: neighbor(bandIndex + 1, RUN_COLD_TIP) },
     { fit: 'normal', outfit: chosen },
-    { fit: 'warm', outfit: neighbor(bandIndex - 1, 'If you run warm, go one layer lighter.') },
+    { fit: 'warm', outfit: neighbor(bandIndex - 1, RUN_WARM_TIP) },
   ];
   return options.filter((option): option is OutfitOption => option.outfit !== null);
 }
