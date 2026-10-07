@@ -186,7 +186,7 @@ changed since the README was last checked and neither `README.md` nor `docs/how-
  - `i18n/`: every word on screen, in `en.ts` and `ko.ts` (typed to have the same keys). Components read them with
    `useMessages()`, other code with `messages()`. Add new text to both files instead of writing it inline.
  - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `Tour`, `PhoneHint`, `LanguageSwitch`, `Logo`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
- - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useTour`, `useEscapeKey`).
+ - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useTour`, `useEscapeKey`, `useStreetAddress`).
  - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`), tours seen, the chosen language, and registering the offline service worker (`offline.ts`).
  - Tour steps live in `constants/tour.ts` and point at elements by their `data-tour` attribute; keep it when moving those elements.
   - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions, and `explore.ts`
