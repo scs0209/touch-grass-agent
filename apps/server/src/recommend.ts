@@ -355,7 +355,7 @@ function namesAPlace(text: string, { weather, airQuality, nearbyParks }: Conditi
 }
 
 /** Below this chance, with nothing falling now, rain isn't worth mentioning. */
-const RAIN_UNLIKELY_PERCENT = 20;
+export const RAIN_UNLIKELY_PERCENT = 20;
 /** At or above this chance, or while it's falling, saying "no rain" is wrong. */
 const RAIN_LIKELY_PERCENT = 50;
 const RAIN_WORDS = /\b(rain\w*|precipitation|showers?|drizzle)\b/i;
@@ -427,7 +427,7 @@ const FEATURE_WORDS: Record<Feature, RegExp> = {
   water: /\b(pond|lake|stream|river|creek|ducks?|fish|koi|water's edge|by the water)\b/i,
 };
 
-const FEATURE_IDEAS: Partial<Record<Feature, string>> = {
+export const FEATURE_IDEAS: Partial<Record<Feature, string>> = {
   viewpoint: 'Take in the view from the viewpoint',
   water: 'Sit by the water for a few quiet minutes',
   'outdoor gym': 'Do a few easy sets at the outdoor gym',
@@ -437,11 +437,15 @@ const FEATURE_IDEAS: Partial<Record<Feature, string>> = {
   benches: 'Rest on a bench for a few minutes before heading back',
   'drinking fountain': 'Refill your water at the drinking fountain',
 };
+export const STRETCH_IDEA = 'Stretch your legs and shoulders for five minutes';
+export const SEASON_IDEA = 'Spot three signs of the season around you';
+export const sunsetIdea = (time: string) => `Catch the sunset around ${time}`;
+export const SUNSET_IDEA = /^Catch the sunset around (\d{2}:\d{2})$/;
 
 function fallbackThingsToDo(features: Feature[], { weather, availableMinutes, preferences }: Conditions) {
   const ideas: string[] = [];
   if (weather.minutesUntilSunset > 0 && weather.minutesUntilSunset < availableMinutes) {
-    ideas.push(`Catch the sunset around ${weather.sunset.slice(11, 16)}`);
+    ideas.push(sunsetIdea(weather.sunset.slice(11, 16)));
   }
   const wanted = wantedFeatures(preferences);
   const relaxed = preferences?.pace === 'easy' && !preferences.interests.includes('exercise');
@@ -449,7 +453,7 @@ function fallbackThingsToDo(features: Feature[], { weather, availableMinutes, pr
     .filter((feature) => !(relaxed && EFFORT_FEATURES.includes(feature)))
     .sort((a, b) => Number(wanted.has(b)) - Number(wanted.has(a)));
   ideas.push(...wantedFirst.flatMap((feature) => FEATURE_IDEAS[feature] ?? []));
-  ideas.push('Stretch your legs and shoulders for five minutes', 'Spot three signs of the season around you');
+  ideas.push(STRETCH_IDEA, SEASON_IDEA);
   return ideas.slice(0, MAX_THINGS_TO_DO);
 }
 

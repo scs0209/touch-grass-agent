@@ -1,8 +1,16 @@
 import { Agent } from '@mastra/core/agent';
 import { ollamaModel } from './agent.js';
 import { createCache } from './cache.js';
+import type { Feature } from './conditions/features.js';
 import { RUN_COLD_TIP, RUN_WARM_TIP } from './outfit.js';
-import type { RecommendResponse } from './recommend.js';
+import {
+  FEATURE_IDEAS,
+  RAIN_UNLIKELY_PERCENT,
+  type RecommendResponse,
+  SEASON_IDEA,
+  STRETCH_IDEA,
+  SUNSET_IDEA,
+} from './recommend.js';
 
 const TRANSLATE_ATTEMPTS = 2;
 /** Low, so the translation stays close to the English instead of adding its own ideas. */
@@ -38,17 +46,71 @@ Example output:
   model: ollamaModel,
 });
 
+const FEATURE_IDEAS_KOREAN: Partial<Record<Feature, string>> = {
+  viewpoint: '전망대에서 경치를 감상해 보세요',
+  water: '물가에 앉아 몇 분 조용히 쉬어 보세요',
+  'outdoor gym': '야외 운동기구로 가볍게 몇 세트 해 보세요',
+  'running track': '트랙을 한 바퀴 가볍게 뛰어 보세요',
+  'sports field': '운동장에서 경기를 몇 분 구경해 보세요',
+  playground: '놀이터에서 그네를 타 보세요',
+  benches: '돌아가기 전에 벤치에서 몇 분 쉬어 가세요',
+  'drinking fountain': '음수대에서 물을 채워 가세요',
+};
+
 /** Fixed server texts, so they never wait for Gemma. */
 const FIXED_KOREAN: Record<string, string> = {
   [RUN_COLD_TIP]: '추위를 타면 한 겹 더 따뜻하게 입으세요.',
   [RUN_WARM_TIP]: '더위를 타면 한 겹 가볍게 입으세요.',
+  [STRETCH_IDEA]: '5분 동안 다리와 어깨를 쭉 펴 보세요',
+  [SEASON_IDEA]: '주변에서 계절이 느껴지는 것 세 가지를 찾아보세요',
+  ...Object.fromEntries(
+    Object.entries(FEATURE_IDEAS).map(([feature, idea]) => [idea, FEATURE_IDEAS_KOREAN[feature as Feature]]),
+  ),
 };
 const FEELS_LIKE_TIP = /^Feels like (-?\d+)°C out there\.$/;
 
-function fixedKorean(text: string) {
+function fixedKorean(text: string): string | undefined {
   const feelsLike = FEELS_LIKE_TIP.exec(text);
   if (feelsLike) return `체감 온도는 ${feelsLike[1]}°C예요.`;
+  const sunset = SUNSET_IDEA.exec(text);
+  if (sunset) return `${sunset[1]}쯤 노을을 보세요`;
   return FIXED_KOREAN[text];
+}
+
+const AIR_KOREAN: Record<string, string> = {
+  good: '좋음',
+  fair: '괜찮음',
+  moderate: '보통',
+  poor: '나쁨',
+  'very poor': '매우 나쁨',
+  'extremely poor': '최악',
+};
+
+/**
+ * The rule-based answer's activity and reason, written from the same facts as the English. It only comes when
+ * Gemma just failed, so Gemma isn't asked to translate it.
+ */
+function ruleBasedKorean({ recommendation, conditions, place, bikeStation }: RecommendResponse) {
+  const air = AIR_KOREAN[conditions.airQuality] ?? conditions.airQuality;
+  const summary = `${conditions.temperatureC}°C, 대기질 ${air}`;
+  if (recommendation.verdict === 'stay') {
+    const rain = conditions.rainChance >= RAIN_UNLIKELY_PERCENT ? `, 비 올 확률 ${conditions.rainChance}%` : '';
+    return {
+      activity: '창문을 열고 10분 동안 스트레칭하기',
+      reason: `지금은 나가기 좋은 때가 아니에요 (${summary}${rain}).`,
+    };
+  }
+  if (bikeStation) {
+    const rideTo = place ? ` ${place.name}까지` : '';
+    return {
+      activity: `${bikeStation.name}에서 자전거를 빌려${rideTo} 타기`,
+      reason: `${summary}, 대여소에 자전거가 ${bikeStation.bikesAvailable}대 있어요.`,
+    };
+  }
+  return {
+    activity: place ? `${place.name}까지 걸어갔다 오기` : '동네 한 바퀴 걷기',
+    reason: `${summary}. 산책하기 괜찮은 날씨예요.`,
+  };
 }
 
 const HANGUL = /[가-힣]/;
@@ -128,14 +190,20 @@ function mask(text: string, { place, station }: Names) {
 const unmask = (text: string, { place, station }: Names) =>
   text.replaceAll(PLACE, place ?? '').replaceAll(STATION, station ?? '');
 
-/** Korean for each text, keyed by the English; null when Gemma couldn't translate them. */
-async function translateTexts(texts: string[], names: Names, agent: Agent): Promise<Map<string, string> | null> {
+/** Korean for the fixed texts among these, keyed by the English. */
+function fixedTranslations(texts: string[]) {
   const korean = new Map<string, string>();
-  const open = [...new Set(texts)].filter((text) => {
+  for (const text of texts) {
     const fixed = fixedKorean(text);
     if (fixed) korean.set(text, fixed);
-    return !fixed;
-  });
+  }
+  return korean;
+}
+
+/** Korean for each text, keyed by the English; null when Gemma couldn't translate them. */
+async function translateTexts(texts: string[], names: Names, agent: Agent): Promise<Map<string, string> | null> {
+  const korean = fixedTranslations(texts);
+  const open = [...new Set(texts)].filter((text) => !korean.has(text));
   if (open.length === 0) return korean;
 
   try {
@@ -158,15 +226,15 @@ async function translateTexts(texts: string[], names: Names, agent: Agent): Prom
  */
 export async function translateResponse(response: RecommendResponse, agent: Agent): Promise<RecommendResponse> {
   const { recommendation, outfits } = response;
+  const ruleBased = response.source === 'fallback' ? ruleBasedKorean(response) : null;
   const texts = [
-    recommendation.activity,
-    recommendation.reason,
+    ...(ruleBased ? [] : [recommendation.activity, recommendation.reason]),
     ...(recommendation.thingsToDo ?? []),
     ...(recommendation.safetyNote ? [recommendation.safetyNote] : []),
     ...outfits.map(({ outfit }) => outfit.tip),
   ];
   const names = { place: response.place?.name, station: response.bikeStation?.name };
-  const korean = await translateTexts(texts, names, agent);
+  const korean = ruleBased ? fixedTranslations(texts) : await translateTexts(texts, names, agent);
   if (!korean) return response;
   const say = (text: string) => korean.get(text) ?? text;
 
@@ -174,8 +242,8 @@ export async function translateResponse(response: RecommendResponse, agent: Agen
     ...response,
     recommendation: {
       ...recommendation,
-      activity: say(recommendation.activity),
-      reason: say(recommendation.reason),
+      activity: ruleBased?.activity ?? say(recommendation.activity),
+      reason: ruleBased?.reason ?? say(recommendation.reason),
       thingsToDo: recommendation.thingsToDo?.map(say),
       safetyNote: recommendation.safetyNote && say(recommendation.safetyNote),
     },
