@@ -1,7 +1,10 @@
 import { type SubmitEvent, useState } from 'react';
+import { CheckIn } from './components/CheckIn';
+import { ExploreLog } from './components/ExploreLog';
 import { Questionnaire } from './components/Questionnaire';
 import { RecentPlaces } from './components/RecentPlaces';
 import { ResultCard } from './components/ResultCard';
+import { useExplorations } from './hooks/useExplorations';
 import { useRecentPlaces } from './hooks/useRecentPlaces';
 import { useRecommendation } from './hooks/useRecommendation';
 import { loadChoice, saveChoice } from './services/choiceStorage';
@@ -21,11 +24,19 @@ export function App() {
   const [editingChoice, setEditingChoice] = useState(false);
   const preferences = choice?.mode === 'custom' ? choice.preferences : null;
   const recentPlaces = useRecentPlaces();
+  const explorations = useExplorations(recentPlaces.places);
   const { status, recommendHere, recommendInCity, recommendRecent, anotherPlace, reset } = useRecommendation(
     availableMinutes,
     preferences,
     recentPlaces.add,
+    explorations.visits,
   );
+  const checkInProps = {
+    candidates: explorations.candidates,
+    status: explorations.checkIn,
+    onCheckIn: () => void explorations.checkInHere(),
+    onDismiss: explorations.dismiss,
+  };
 
   function handleCitySubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -55,6 +66,8 @@ export function App() {
         around={status.session.origin.label}
         finding={status.finding}
         notice={status.notice}
+        visits={explorations.visits}
+        checkIn={<CheckIn {...checkInProps} compact />}
         onAnotherPlace={() => void anotherPlace()}
         onReset={reset}
       />
@@ -70,6 +83,8 @@ export function App() {
           <span aria-hidden="true">✎</span> Edit answers
         </button>
       </div>
+
+      <CheckIn {...checkInProps} />
 
       <section className="panel">
         <p className="muted">How much time do you have?</p>
@@ -124,6 +139,8 @@ export function App() {
         </p>
       )}
       {status.kind === 'error' && <p className="error">{status.message}</p>}
+
+      <ExploreLog visits={explorations.visits} />
 
       <RecentPlaces
         places={recentPlaces.places}

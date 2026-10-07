@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
 import { FIT_LABELS } from '../constants/outfit';
 import type { RecommendResponse } from '../types/api';
+import type { Visit } from '../types/explore';
 import type { Fit, Outfit } from '../types/outfit';
 import type { StoryInput } from '../types/preview';
 import { directionsUrl } from '../utils/directions';
+import { discoveryLabel, placeNote } from '../utils/explore';
 import { PLACE_KIND_LABEL, placeArea } from '../utils/places';
 import { describeRoute, storyInput } from '../utils/result';
 import { Avatar } from './Avatar';
@@ -20,11 +22,24 @@ interface ResultCardProps {
   /** True while another place is being looked up. */
   finding: boolean;
   notice: string | null;
+  /** Places the person checked in at, to say what this one would be for them. */
+  visits: Visit[];
+  /** Shown under the directions, for checking in once there. */
+  checkIn: ReactNode;
   onAnotherPlace: () => void;
   onReset: () => void;
 }
 
-export function ResultCard({ result, around, finding, notice, onAnotherPlace, onReset }: ResultCardProps) {
+export function ResultCard({
+  result,
+  around,
+  finding,
+  notice,
+  visits,
+  checkIn,
+  onAnotherPlace,
+  onReset,
+}: ResultCardProps) {
   const { recommendation, conditions, outfits, origin, place, route, bikeStation, source } = result;
   const [fit, setFit] = useState<Fit>('normal');
   const [preview, setPreview] = useState<{ input: StoryInput; outfit: Outfit } | null>(null);
@@ -32,6 +47,7 @@ export function ResultCard({ result, around, finding, notice, onAnotherPlace, on
   const isGo = recommendation.verdict === 'go';
   const destination = place ?? bikeStation;
   const routeCaption = describeRoute(result);
+  const note = place && placeNote(visits, place);
 
   // The button for another place sits mid-page; the new suggestion should be read from its title.
   useEffect(() => {
@@ -46,6 +62,7 @@ export function ResultCard({ result, around, finding, notice, onAnotherPlace, on
         {isGo && place && (
           <p className="muted small">{[PLACE_KIND_LABEL[place.kind], placeArea(place)].filter(Boolean).join(' · ')}</p>
         )}
+        {isGo && note && <p className="discovery small">{note}</p>}
         <p className="duration">{recommendation.durationMin} minutes</p>
         <p className="reason">{recommendation.reason}</p>
         {recommendation.thingsToDo.length > 0 && (
@@ -78,7 +95,9 @@ export function ResultCard({ result, around, finding, notice, onAnotherPlace, on
       {isGo && place && (
         <button
           className="secondary preview-button"
-          onClick={() => setPreview({ input: storyInput(result, place, outfit), outfit })}
+          onClick={() =>
+            setPreview({ input: storyInput(result, place, outfit, discoveryLabel(visits, place)), outfit })
+          }
           type="button"
         >
           ▶ Preview your {bikeStation ? 'ride' : 'walk'}
@@ -134,6 +153,8 @@ export function ResultCard({ result, around, finding, notice, onAnotherPlace, on
           {place && bikeStation ? 'Ride' : 'Walk'} to {destination.name}
         </a>
       )}
+
+      {isGo && place && checkIn}
 
       {isGo && <p className="pocket">Now put your phone in your pocket.</p>}
 

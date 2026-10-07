@@ -1,12 +1,8 @@
 import type { RecentPlace } from '../types/places';
-import { distanceM } from '../utils/geo';
+import { isSamePlace } from '../utils/places';
 
 const STORAGE_KEY = 'touch-grass-recent-places';
 const MAX_RECENT_PLACES = 10;
-/** Nominatim can place the same park a few meters apart between searches. */
-const SAME_PLACE_M = 150;
-
-export const isSamePlace = (a: RecentPlace, b: RecentPlace) => a.name === b.name && distanceM(a, b) < SAME_PLACE_M;
 
 const isRecentPlace = (value: unknown): value is RecentPlace => {
   const place = value as RecentPlace;

@@ -686,6 +686,7 @@ function buildFilm(input: StoryInput, bpm: number, map: FlyoverMap, camera: Plan
   caption(
     ending,
     {
+      kicker: input.discovery ?? undefined,
       title: 'Ready when you are.',
       chips: ['Leave now', `Back by ${story.backBy}`, ...(story.sunsetAt ? [`Sunset ${story.sunsetAt}`] : [])],
     },

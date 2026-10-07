@@ -16,4 +16,6 @@ export interface StoryInput {
   things: { text: string; scene: ThingScene }[];
   outfitItems: OutfitItem[];
   conditions: WeatherConditions;
+  /** What going there would be for the person, e.g. "First place in Busan"; null when they've been there. */
+  discovery: string | null;
 }

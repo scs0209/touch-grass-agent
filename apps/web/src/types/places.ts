@@ -19,6 +19,10 @@ export interface RecentPlace extends LatLon {
   origin: SearchOrigin;
   /** It was a public bike trip, so picking it again rides when a station nearby has bikes. Missing in older saves. */
   byBike?: boolean;
+  /** Where the route meets the place; a big park's entrance can be far from its center. Missing in older saves. */
+  arrival?: LatLon;
+  /** What the suggestion said to do there, shown again on arrival. Missing in older saves. */
+  thingsToDo?: string[];
   /** When it was last suggested, in milliseconds since the epoch. */
   viewedAt: number;
 }

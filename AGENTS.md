@@ -165,10 +165,11 @@ changed since the README was last checked and `README.md` wasn't touched.
   rerun `node scripts/bench/compare.mjs <before> <after>` and update the page, its chart, and its raw results.
 - `apps/web/src/`: `App.tsx` (screens) and `main.tsx`, with code grouped by role. Keep `.tsx` files to UI and
   put other code in the matching folder:
- - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
- - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useEscapeKey`).
- - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places.
-  - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions).
+ - `components/`: `Questionnaire`, `ResultCard`, `ResultMap`, `RecentPlaces`, `CheckIn`, `ExploreLog`, `WeatherPanel`, `OutfitCards`, `Avatar`, `WalkPreview`.
+ - `hooks/`: React logic used by screens (`useRecommendation`, `useRecentPlaces`, `useExplorations`, `useEscapeKey`).
+ - `services/`: server requests (`api.ts`), browser location and city lookup, saved answers, recent places, check-ins (`explorations.ts`).
+  - `utils/`: pure helpers (geometry, weather levels, route captions, outfit items, directions, and `explore.ts`
+    for check-in distance, goals, badges, and weekly records; check-ins are the only thing that moves them).
   - `constants/`, `types/`: shared labels and types.
   - `preview/`: the walk preview film (`film.ts`, `flyoverMap.ts`), the illustrated fallback (`story.ts`),
     music, recording, and the recorded-video cache (`videoCache.ts`).

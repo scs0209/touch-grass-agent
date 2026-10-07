@@ -41,13 +41,16 @@ export interface SuggestedPlace extends NamedPoint {
   /** District or neighborhood within the city, e.g. "Jongno-gu". */
   area: string | null;
   features: string[] | null;
+  /** Named in exploredPlaces, i.e. the person checked in there before. */
+  explored: boolean;
 }
 
 /** What /api/recommend takes besides the starting point, to find a different place or the same one again. */
 export interface PlaceSearch {
   excludePlaces?: string[];
   varyFrom?: PlaceKind | null;
-  place?: (Omit<SuggestedPlace, 'features'> & { byBike?: boolean }) | null;
+  place?: (Omit<SuggestedPlace, 'features' | 'explored'> & { byBike?: boolean }) | null;
+  exploredPlaces?: string[];
 }
 
 export interface RecommendResponse {

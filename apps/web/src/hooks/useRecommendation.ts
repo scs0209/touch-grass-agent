@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { fetchRecommendation } from '../services/api';
 import { geocodeCity, getCurrentPosition, locationErrorMessage } from '../services/location';
 import type { PlaceKind, PlaceSearch, RecommendResponse } from '../types/api';
+import type { Visit } from '../types/explore';
 import type { RecentPlace, SearchOrigin } from '../types/places';
 import type { Preferences } from '../types/preferences';
+import { exploredNear } from '../utils/explore';
 
 /** One search from a starting point, and the places suggested from it so far. */
 export interface PlaceSession {
@@ -30,25 +32,30 @@ const HERE_LABEL = 'your location';
 
 /**
  * Finds where the person is (or looks up a city), asks the server for a suggestion, and can then ask for another
- * place from the same start. Every suggested place goes to onPlace, which keeps the recent places.
+ * place from the same start. Every suggested place goes to onPlace, which keeps the recent places. Places the person
+ * explored around the start go with each request, so somewhere new comes first.
  */
 export function useRecommendation(
   availableMinutes: number,
   preferences: Preferences | null,
   onPlace: (place: RecentPlace) => void,
+  visits: Visit[],
 ) {
   const [status, setStatus] = useState<RecommendStatus>({ kind: 'idle' });
 
   /** The session after a result, recording its place both here and in the recent places. */
   function remember(result: RecommendResponse, session: PlaceSession): PlaceSession {
-    const { place } = result;
+    const { place, route } = result;
     if (!place) return session;
-    const { features: _features, ...details } = place;
+    const { features: _features, explored: _explored, ...details } = place;
+    const arrival = route ? { lat: route.destinationOnPath[0], lon: route.destinationOnPath[1] } : undefined;
     onPlace({
       ...details,
       city: place.city ?? session.origin.city,
       origin: session.origin,
-      byBike: result.route?.mode === 'bike',
+      byBike: route?.mode === 'bike',
+      arrival,
+      thingsToDo: result.recommendation.thingsToDo,
       viewedAt: Date.now(),
     });
     return { ...session, seen: [...session.seen, place.name], lastKind: place.kind };
@@ -62,7 +69,10 @@ export function useRecommendation(
         : 'Checking the sky, the air, and nearby places…',
     });
     try {
-      const result = await fetchRecommendation(origin, availableMinutes, preferences, search);
+      const result = await fetchRecommendation(origin, availableMinutes, preferences, {
+        ...search,
+        exploredPlaces: exploredNear(visits, origin),
+      });
       const session = remember(result, { origin, seen: [], lastKind: null });
       setStatus({ kind: 'done', result, session, finding: false, notice: null });
     } catch (error) {
@@ -92,8 +102,8 @@ export function useRecommendation(
 
   /** Suggests a recent place again, from where its walk started then. */
   function recommendRecent(place: RecentPlace) {
-    const { origin, viewedAt: _viewedAt, ...details } = place;
-    return start(origin, { place: details });
+    const { name, kind, city, area, lat, lon, byBike } = place;
+    return start(place.origin, { place: { name, kind, city, area, lat, lon, byBike } });
   }
 
   /** Another place from the same start, skipping the ones already suggested; the current one stays if none is left. */
@@ -107,6 +117,7 @@ export function useRecommendation(
       const result = await fetchRecommendation(session.origin, availableMinutes, preferences, {
         excludePlaces: session.seen,
         varyFrom: session.lastKind,
+        exploredPlaces: exploredNear(visits, session.origin),
       });
       if (result.recommendation.verdict === 'go' && !result.place) {
         keepCurrent(

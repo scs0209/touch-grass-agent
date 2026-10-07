@@ -16,6 +16,7 @@ export function storyInput(
   result: RecommendResponse,
   place: NonNullable<RecommendResponse['place']>,
   outfit: Outfit,
+  discovery: string | null,
 ): StoryInput {
   const { recommendation, thingScenes, origin, route, bikeStation, conditions } = result;
   return {
@@ -29,5 +30,6 @@ export function storyInput(
     things: recommendation.thingsToDo.map((text, i) => ({ text, scene: thingScenes[i] ?? 'walk' })),
     outfitItems: outfitItems(outfit),
     conditions,
+    discovery,
   };
 }

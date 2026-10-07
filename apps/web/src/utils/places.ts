@@ -1,10 +1,16 @@
 import type { PlaceKind } from '../types/api';
+import type { NamedPoint } from '../types/geo';
 import type { RecentPlace } from '../types/places';
 import { distanceM } from './geo';
 
 export const PLACE_KIND_LABEL: Record<PlaceKind, string> = { park: 'Park', landmark: 'Landmark' };
 
-function formatDistance(meters: number) {
+/** Nominatim can place the same park a few meters apart between searches. */
+const SAME_PLACE_M = 150;
+
+export const isSamePlace = (a: NamedPoint, b: NamedPoint) => a.name === b.name && distanceM(a, b) < SAME_PLACE_M;
+
+export function formatDistance(meters: number) {
   return meters < 1000 ? `${Math.round(meters / 10) * 10} m` : `${(meters / 1000).toFixed(1)} km`;
 }
 

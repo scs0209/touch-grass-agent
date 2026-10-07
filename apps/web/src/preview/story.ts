@@ -845,6 +845,7 @@ function drawEnding(frame: Frame) {
   drawWeather(frame);
   // The end-screen buttons cover roughly the bottom quarter of the frame.
   drawAvatar(frame, WIDTH / 2, 930, 240, 'sway', pop(frame));
+  if (story.input.discovery) drawText(ctx, story.input.discovery, 90, { size: 28, weight: 600 });
   const below = drawText(ctx, 'Ready when you are.', 140, { size: 66, scale: pop(frame) });
   const next = drawText(ctx, `Leave now · back by ${story.backBy}`, below + 30, {
     size: 40,
