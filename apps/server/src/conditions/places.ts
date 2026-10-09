@@ -15,14 +15,44 @@ export interface Place {
   city: string | null;
   /** District or neighborhood within the city, e.g. "Jongno-gu". */
   area: string | null;
+  /** The place's outline in OpenStreetMap; null when it is mapped as a single point. */
+  outline: OsmOutline | null;
+}
+
+export interface OsmOutline {
+  type: 'way' | 'relation';
+  id: number;
 }
 
 interface NominatimResult {
   name: string;
   lat: string;
   lon: string;
+  osm_type?: string;
+  osm_id?: number;
   address?: Record<string, string>;
   extratags?: Record<string, string> | null;
+}
+
+const outlineOf = ({ osm_type, osm_id }: NominatimResult): OsmOutline | null =>
+  (osm_type === 'way' || osm_type === 'relation') && osm_id ? { type: osm_type, id: osm_id } : null;
+
+/** [lon, lat] pairs, as in GeoJSON. */
+export type Ring = [number, number][];
+
+interface NominatimLookup {
+  osm_type: string;
+  osm_id: number;
+  geojson?: { type: string; coordinates: unknown };
+}
+
+const lookupKey = (type: string, id: number) => `${type === 'way' ? 'W' : 'R'}${id}`;
+export const outlineKey = ({ type, id }: OsmOutline) => lookupKey(type, id);
+
+function ringsOf(geojson: NominatimLookup['geojson']): Ring[] | null {
+  if (geojson?.type === 'Polygon') return geojson.coordinates as Ring[];
+  if (geojson?.type === 'MultiPolygon') return (geojson.coordinates as Ring[][]).flat();
+  return null;
 }
 
 const WALKING_METERS_PER_MIN = 80;
@@ -115,6 +145,28 @@ export function streetAddress({ lat, lon }: LatLon): Promise<string | null> {
   });
 }
 
+/**
+ * The outlines of up to 50 places, by outlineKey, in one request. The area search that finds parks returns no
+ * polygons, and Overpass takes several seconds longer to send them; places drawn as a line are left out.
+ */
+export async function getOutlines(outlines: OsmOutline[]): Promise<Map<string, Ring[]>> {
+  const url = new URL('https://nominatim.openstreetmap.org/lookup');
+  url.search = new URLSearchParams({
+    osm_ids: outlines.map(outlineKey).join(','),
+    format: 'jsonv2',
+    polygon_geojson: '1',
+    // About 1 m, which keeps a big park's outline small without moving its edge.
+    polygon_threshold: '0.00001',
+  }).toString();
+  const results = await fetchNominatim<NominatimLookup[]>(url);
+  return new Map(
+    results.flatMap((result): [string, Ring[]][] => {
+      const rings = ringsOf(result.geojson);
+      return rings ? [[lookupKey(result.osm_type, result.osm_id), rings]] : [];
+    }),
+  );
+}
+
 /** Straight-line radius reachable on a round trip within the available time. */
 export function walkableRadiusM(availableMinutes: number) {
   return Math.round(((availableMinutes / 2) * WALKING_METERS_PER_MIN) / DETOUR_FACTOR);
@@ -167,6 +219,7 @@ export async function getNearbyPlaces(
         distanceMeters: Math.round(distanceInMeters(origin, position)),
         city: cityOf(result.address),
         area: areaOf(result.address),
+        outline: outlineOf(result),
       };
     })
     .filter((place) => place.distanceMeters <= radiusM && place.distanceMeters > beyondM);

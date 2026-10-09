@@ -22,8 +22,9 @@ import {
   recommendationSchema,
 } from './schema.js';
 
-export interface Park extends Place {
-  /** What OpenStreetMap shows around the park; null when it couldn't be checked in time. */
+/** The outline only serves the features lookup; the whole park goes into Gemma's prompt. */
+export interface Park extends Omit<Place, 'outline'> {
+  /** What OpenStreetMap shows at the park; null when it couldn't be checked in time. */
   features: Feature[] | null;
   /** Measured walking time there and back; null when the router didn't answer in time or the park is bike-only. */
   roundTripMin: number | null;
@@ -156,6 +157,7 @@ async function pinnedPark(
     distanceMeters: Math.round(distanceInMeters(origin, pinned)),
     city: pinned.city ?? null,
     area: pinned.area ?? null,
+    outline: null,
   });
   if (station) {
     const ridden = await withDetails(origin, [], { station, places: [place('B1')] }, availableMinutes, {
@@ -187,7 +189,7 @@ async function withDetails(
 
   // The search radius assumes a typical detour, so some real round trips take longer than the time available.
   const walkParks = walkPlaces
-    .map((place, index) => ({
+    .map(({ outline, ...place }, index) => ({
       ...place,
       features: featuresOf(index),
       roundTripMin: walks?.[index].durationMin ?? null,
@@ -197,7 +199,7 @@ async function withDetails(
     .filter((park) => keepAll || park.roundTripMin === null || park.roundTripMin <= availableMinutes);
   // A bike-only park that couldn't be measured might not fit at all, so it is left out.
   const rideParks = ridePlaces
-    .map((place, index) => ({
+    .map(({ outline, ...place }, index) => ({
       ...place,
       features: featuresOf(walkPlaces.length + index),
       roundTripMin: null,
